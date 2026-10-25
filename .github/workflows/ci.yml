@@ -29,15 +29,12 @@ jobs:
           files: coverage/lcov.info
           fail_ci_if_error: true
 
-  # Runs the real sqlc pinned in tools/sqlc/go.mod. This is what vets a Dependabot bump:
-  # - the fixtures regenerated with it must still typecheck and pass the tests (they are not
-  #   required to match the committed ones, whose header names the sqlc version);
-  # - the packages `pnpm release` would publish must install and generate like a user's.
+  # Runs the real sqlc pinned in tools/sqlc/go.mod; this is what vets a Dependabot bump.
+  # The fixtures regenerated with it must still typecheck and pass the tests (they are not
+  # required to match the committed ones, whose header names the sqlc version), and it packs
+  # every package `pnpm release` would publish, so a release missing an asset fails here.
   bundled-sqlc:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -50,21 +47,44 @@ jobs:
       - run: pnpm fixture
       - run: pnpm typecheck
       - run: pnpm test
-      - run: pnpm build
-      # Linux packs every platform, so a release missing an asset fails before publishing.
-      - if: runner.os == 'Linux'
-        run: node scripts/sqlc-packages.ts pack .pack
-      - if: runner.os != 'Linux'
-        run: node scripts/sqlc-packages.ts pack .pack --current
-      - name: Install the packages and generate, as a user would
-        run: |
-          pack="$PWD/.pack"
+      - run: pnpm pack:all
+      - uses: actions/upload-artifact@v7
+        with:
+          name: packages
+          path: .pack/
+
+  # Installs the packed tarballs the way a user would, on each OS, with the oldest supported
+  # Node, and generates the SQLite fixture with the bundled sqlc.
+  install:
+    needs: bundled-sqlc
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v8
+        with:
+          name: packages
+          path: .pack
+      - run: |
           platform=$(node -p '`sqlc-ts-${process.platform}-${process.arch}`')
           version=$(node -p 'require("./package.json").version')
+          sqlc=$(sed -n 's|^require github.com/sqlc-dev/sqlc v||p' tools/sqlc/go.mod)
           dir=$(mktemp -d)
+          cp ".pack/sqlc-ts-$version.tgz" ".pack/$platform-$version.tgz" "$dir"
           cp -r test/fixture/sqlite/sqlc.yaml test/fixture/sqlite/migrations test/fixture/sqlite/queries "$dir"
           cd "$dir"
           npm init -y > /dev/null
-          npm install -D "$pack/sqlc-ts-$version.tgz" "$pack/$platform-$version.tgz"
+          npm install -D "./sqlc-ts-$version.tgz" "./$platform-$version.tgz"
+          test "$(./node_modules/.bin/sqlc-ts sqlc version)" = "v$sqlc"
           ./node_modules/.bin/sqlc-ts generate codegen_request.json gen
+          ls gen
           test -f gen/titles.ts
