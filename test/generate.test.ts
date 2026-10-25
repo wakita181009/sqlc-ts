@@ -1,11 +1,14 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import fixture from "../test/fixture/codegen_request.json" with {
-  type: "json",
-};
-import { camelCase, GenerateError, generate, pascalCase } from "./generate.ts";
-import type { Column, GenerateRequest, Query } from "./request.ts";
-import { resolveType } from "./types.ts";
+import {
+  camelCase,
+  GenerateError,
+  generate,
+  pascalCase,
+} from "../src/generate.ts";
+import type { Column, GenerateRequest, Query } from "../src/request.ts";
+import { resolveType } from "../src/types.ts";
+import fixture from "./fixture/codegen_request.json" with { type: "json" };
 
 const request = fixture as GenerateRequest;
 
@@ -50,7 +53,7 @@ describe("generate", () => {
   it("matches the committed output for the fixture (pnpm fixture regenerates it)", () => {
     for (const file of generate(request)) {
       const golden = readFileSync(
-        new URL(`../test/fixture/gen/${file.path}`, import.meta.url),
+        new URL(`./fixture/gen/${file.path}`, import.meta.url),
         "utf8",
       );
       expect(file.contents, file.path).toBe(golden);
@@ -105,11 +108,33 @@ describe("generate", () => {
   });
 
   it("rejects :one and :many without result columns", () => {
-    const req = withQuery("GetTitle", (q) => {
+    const one = withQuery("GetTitle", (q) => {
+      q.columns = [];
+    });
+    const many = withQuery("ListTitlesByStatus", (q) => {
       q.columns = [];
     });
 
-    expect(problems(req)[0]).toContain(":one needs result columns");
+    expect(problems(one)[0]).toContain(":one needs result columns");
+    expect(problems(many)[0]).toContain(":many needs result columns");
+  });
+
+  it("rejects query names that do not make identifiers", () => {
+    const req = withQuery("GetTitle", (q) => {
+      q.name = "1Get";
+    });
+
+    expect(problems(req)).toEqual([
+      "titles.sql 1Get: query name does not make a valid identifier",
+    ]);
+  });
+
+  it("rejects sqlc.slice() parameters", () => {
+    const req = withQuery("GetTitle", (q) => {
+      q.params[0].column.is_sqlc_slice = true;
+    });
+
+    expect(problems(req)[0]).toContain("sqlc.slice() is not supported");
   });
 
   it("refuses a query file whose output would overwrite runtime.ts", () => {
@@ -120,6 +145,53 @@ describe("generate", () => {
     expect(problems(req)).toContain(
       "runtime.sql: rename the file, runtime.ts is generated",
     );
+  });
+
+  it("rejects parameters that do not make distinct identifiers", () => {
+    const unnamed = withQuery("RenameTitle", (q) => {
+      q.params[0].column.name = "?";
+    });
+    const clash = withQuery("RenameTitle", (q) => {
+      q.params[0].column.name = "id";
+    });
+
+    expect(problems(unnamed)[0]).toContain("name it with @name");
+    expect(problems(clash)[0]).toContain('two parameters map to "id"');
+  });
+
+  it("labels a column with no name when its type is unresolved", () => {
+    const req = withQuery("QuotedLiteral", (q) => {
+      q.columns[0].name = "";
+      q.columns[0].type.name = "";
+    });
+
+    expect(problems(req)).toEqual([
+      expect.stringContaining("alias it with AS"),
+      expect.stringContaining("QuotedLiteral: (unnamed): sqlc could not infer"),
+    ]);
+  });
+
+  it("applies @notnull over sqlc's guess", () => {
+    const req = withQuery("GetTitle", (q) => {
+      q.columns[1].not_null = false;
+      q.comments.push(" @notnull name");
+    });
+    const titles = generate(req).find((f) => f.path === "titles.ts");
+
+    expect(titles?.contents).toContain("name: string;");
+  });
+
+  it("skips enums.ts when the schema has none and types an empty enum as never", () => {
+    const none = structuredClone(request);
+    for (const schema of none.catalog.schemas) schema.enums = null;
+    const empty = structuredClone(request);
+    const own = empty.catalog.schemas.find((s) => s.name === "public");
+    own?.enums?.push({ name: "empty_enum", vals: [] });
+
+    expect(generate(none).map((f) => f.path)).not.toContain("enums.ts");
+    expect(
+      generate(empty).find((f) => f.path === "enums.ts")?.contents,
+    ).toContain("export type EmptyEnum = never;");
   });
 
   it("emits a :many that takes no arguments without an args parameter", () => {
@@ -167,6 +239,10 @@ describe("resolveType", () => {
     expect(resolveType(column({ type: "any" }), "output", none)).toHaveProperty(
       "error",
     );
+    expect(resolveType(column({ type: "" }), "output", none)).toEqual({
+      error:
+        'sqlc could not infer a type (got "none"); add a cast such as ::text',
+    });
   });
 });
 

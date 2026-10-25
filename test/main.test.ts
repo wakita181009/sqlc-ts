@@ -1,0 +1,83 @@
+import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { GENERATED_MARKER } from "../src/generate.ts";
+import { main } from "../src/main.ts";
+import fixture from "./fixture/codegen_request.json" with { type: "json" };
+
+let dir: string;
+let requestPath: string;
+let outDir: string;
+const log = vi.spyOn(console, "log").mockImplementation(() => {});
+const error = vi.spyOn(console, "error").mockImplementation(() => {});
+
+beforeEach(async () => {
+  dir = await mkdtemp(join(tmpdir(), "sqlc-ts-"));
+  requestPath = join(dir, "codegen_request.json");
+  outDir = join(dir, "gen");
+  await writeFile(requestPath, JSON.stringify(fixture));
+  log.mockClear();
+  error.mockClear();
+});
+
+afterEach(() => rm(dir, { recursive: true, force: true }));
+
+describe("main", () => {
+  it("prints usage and exits 2 without both arguments", async () => {
+    expect(await main([requestPath])).toBe(2);
+    expect(error).toHaveBeenCalledWith(expect.stringContaining("Usage:"));
+  });
+
+  it("writes the generated files plus runtime.ts and reports the count", async () => {
+    expect(await main([requestPath, outDir])).toBe(0);
+
+    expect((await readdir(outDir)).sort()).toEqual([
+      "enums.ts",
+      "runtime.ts",
+      "titles.ts",
+      "views.ts",
+    ]);
+    const golden = await readFile(
+      new URL("./fixture/gen/runtime.ts", import.meta.url),
+      "utf8",
+    );
+    expect(await readFile(join(outDir, "runtime.ts"), "utf8")).toBe(golden);
+    expect(log).toHaveBeenCalledWith(
+      expect.stringContaining(`wrote 4 file(s) to ${outDir}`),
+    );
+  });
+
+  it("removes stale generated files but keeps hand-written and non-ts files", async () => {
+    await main([requestPath, outDir]);
+    await writeFile(join(outDir, "old.ts"), `${GENERATED_MARKER}\nold`);
+    await writeFile(join(outDir, "mine.ts"), "export const mine = 1;");
+    await writeFile(join(outDir, "notes.md"), `${GENERATED_MARKER}`);
+
+    await main([requestPath, outDir]);
+
+    const entries = (await readdir(outDir)).sort();
+    expect(entries).not.toContain("old.ts");
+    expect(entries).toEqual(
+      expect.arrayContaining(["mine.ts", "notes.md", "titles.ts"]),
+    );
+  });
+
+  it("lists generation problems and exits 1", async () => {
+    const broken = structuredClone(fixture);
+    broken.queries[0].cmd = ":batchexec";
+    await writeFile(requestPath, JSON.stringify(broken));
+
+    expect(await main([requestPath, outDir])).toBe(1);
+    expect(error).toHaveBeenCalledWith("sqlc-ts: 1 problem(s)");
+    expect(error).toHaveBeenCalledWith(
+      expect.stringContaining(":batchexec is not supported"),
+    );
+  });
+
+  it("rethrows errors that are not generation problems", async () => {
+    await writeFile(requestPath, "{}");
+
+    await expect(main([requestPath, outDir])).rejects.toThrow(TypeError);
+  });
+});
