@@ -52,6 +52,9 @@ jobs:
         with:
           name: packages
           path: .pack/
+          # .pack is a dot directory, which upload-artifact skips by default.
+          include-hidden-files: true
+          if-no-files-found: error
 
   # Installs the packed tarballs the way a user would, on each OS, with the oldest supported
   # Node, and generates the SQLite fixture with the bundled sqlc.
