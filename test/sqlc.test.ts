@@ -57,8 +57,8 @@ describe("findSqlc", () => {
     expect(findSqlc({}, () => join(dir, "package.json"))).toBe("sqlc");
   });
 
-  it("resolves the platform package as installed", () => {
-    // The workspace links it; the binary is there only after `pnpm sqlc:fetch`.
+  it("resolves the platform package with the real resolver", () => {
+    // Not installed in this repository (only published sqlc-ts depends on it), so PATH.
     expect(findSqlc({})).toMatch(/sqlc(\.exe)?$/);
   });
 

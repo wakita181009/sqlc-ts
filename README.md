@@ -117,8 +117,8 @@ pnpm test
 pnpm typecheck
 pnpm lint       # biome check
 pnpm build      # compiles src/ to dist/, which is what npm publishes
-pnpm sqlc:fetch --current  # puts this platform's sqlc into npm/sqlc-ts-<platform>-<arch>/bin
-pnpm fixture    # after changing the generator: regenerates test/fixture/* (uses the fetched sqlc)
+pnpm sqlc:fetch # downloads this platform's sqlc (the version in tools/sqlc/go.mod) into .sqlc/bin
+pnpm fixture    # after changing the generator: regenerates test/fixture/* with that sqlc
 ```
 
 `test/fixture/{postgres,sqlite}/gen` are the committed outputs for the fixture schemas; the tests compare against them, `pnpm typecheck` compiles them, and the SQLite output is run against an in-memory `node:sqlite` database.
@@ -127,8 +127,8 @@ Engine-specific code lives in `src/dialects/<engine>/`: the type map, the runtim
 
 ### Bundled sqlc and releases
 
-`npm/sqlc-ts-<platform>-<arch>/` are the platform packages, linked into the root as a pnpm workspace. Their binaries are not committed: `pnpm sqlc:fetch` downloads them, with sqlc's LICENSE, from the GitHub release of the version in `tools/sqlc/go.mod`.
+The platform packages are not in the repository: `pnpm pack:all` builds them in a temporary directory, from the sqlc binaries and LICENSE of the GitHub release pinned in `tools/sqlc/go.mod`, and writes their tarballs plus sqlc-ts's to `.pack/`. Their `package.json` is generated with sqlc-ts's version, and sqlc-ts's published `package.json` gets them as exact-version `optionalDependencies`; the repository's has none, so `pnpm install` never asks npm for versions that are not out yet.
 
-To release, bump `version` in `package.json` and in every `npm/*/package.json` together (a test fails if they differ), then run `pnpm release`. It fetches all six binaries and publishes the platform packages before `sqlc-ts`, whose `workspace:*` optional dependencies pnpm turns into that exact version.
+To release, bump `version` in `package.json` and run `pnpm release`. It runs lint, typecheck and tests, packs everything, and publishes the six platform packages before sqlc-ts. A plain `npm publish` / `pnpm publish` is refused, since it would ship sqlc-ts without the platform packages.
 
 `tools/sqlc/go.mod` is the only place the sqlc version lives. Dependabot opens a PR when sqlc releases; CI then fetches that version, regenerates the fixtures with it, and runs the typecheck and tests on the result. The committed fixtures name the sqlc version in their header, so they are updated the next time someone runs `pnpm fixture`. To bump by hand: `cd tools/sqlc && go get github.com/sqlc-dev/sqlc@vX.Y.Z && go mod tidy`.
