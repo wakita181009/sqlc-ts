@@ -19,12 +19,14 @@
     "test:coverage": "vitest run --coverage",
     "lint": "biome check",
     "lint:fix": "biome check --write",
-    "fixture": "for d in postgres sqlite; do (cd test/fixture/$d && sqlc generate && node ../../../src/cli.ts codegen_request.json gen) || exit 1; done"
+    "fixture": "for d in postgres sqlite; do (cd test/fixture/$d && sqlc generate && node ../../../src/cli.ts codegen_request.json gen) || exit 1; done",
+    "prepare": "husky"
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.2",
     "@types/node": "26.6.5",
     "@vitest/coverage-v8": "5.0.5",
+    "husky": "9.1.7",
     "typescript": "7.0.2",
     "vitest": "5.0.5"
   }
