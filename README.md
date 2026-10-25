@@ -2,11 +2,29 @@
 
 [![npm](https://img.shields.io/npm/v/sqlc-ts)](https://www.npmjs.com/package/sqlc-ts) [![CI](https://github.com/wakita181009/sqlc-ts/actions/workflows/ci.yml/badge.svg)](https://github.com/wakita181009/sqlc-ts/actions/workflows/ci.yml) [![codecov](https://codecov.io/gh/wakita181009/sqlc-ts/graph/badge.svg)](https://codecov.io/gh/wakita181009/sqlc-ts)
 
+Type-safe TypeScript from raw SQL, checked statically with no database. Supports PostgreSQL and SQLite.
+
+The analysis is done by [sqlc](https://sqlc.dev), the Go tool. sqlc parses your schema and queries (Postgres's own parser via pg_query for `postgresql`) and checks every query against the schema, all without connecting to a database. This package does not analyze SQL itself: it reads the JSON that sqlc emits with `gen: json` and writes typed TypeScript functions from it.
+
+- **No database needed**: nothing to start in CI, no shadow database, no live introspection. The schema files are the source of truth.
+- **Errors at generate time**: an unknown column, a wrong table, or a type mismatch fails `sqlc generate`, not your app at runtime.
+- **Plain SQL**: queries are `.sql` files with a `-- name:` comment, not a query builder or an ORM.
+- **PostgreSQL and SQLite**: sqlc's `postgresql` and `sqlite` engines, each with its own type mapping and a small runtime adapter.
+
 Unofficial, not affiliated with sqlc (and unrelated to the `sqlc-typescript` npm package or sqlc's own `sqlc-gen-typescript` plugin).
 
-Turns sqlc's analysis of raw SQL into typed TypeScript functions. sqlc does the checking (every query against the schema, statically, no database needed); this package only writes the TS side, from the JSON sqlc emits with `gen: json`. Supports sqlc's `postgresql` and `sqlite` engines.
+## How it works
+
+```
+schema + queries (.sql)
+  → sqlc generate        (Go; parses and checks every query, no DB)
+  → codegen_request.json (sqlc's analysis: columns, params, types, nullability)
+  → sqlc-ts              (writes .ts query functions + runtime)
+```
 
 ## Usage
+
+Install [sqlc](https://docs.sqlc.dev/en/latest/overview/install.html) (`brew install sqlc` or `go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest`), then:
 
 ```sh
 npm install -D sqlc-ts   # needs Node 26+
