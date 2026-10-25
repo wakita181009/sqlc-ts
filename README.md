@@ -2,7 +2,7 @@
 
 Unofficial, not affiliated with sqlc (and unrelated to the `sqlc-typescript` npm package or sqlc's own `sqlc-gen-typescript` plugin).
 
-Turns sqlc's analysis of raw SQL into typed TypeScript functions. sqlc does the checking (every query against the schema, statically, no database needed); this package only writes the TS side, from the JSON sqlc emits with `gen: json`.
+Turns sqlc's analysis of raw SQL into typed TypeScript functions. sqlc does the checking (every query against the schema, statically, no database needed); this package only writes the TS side, from the JSON sqlc emits with `gen: json`. Supports sqlc's `postgresql` and `sqlite` engines.
 
 ## Usage
 
@@ -23,9 +23,10 @@ sql:
 sqlc generate && sqlc-ts db/gen/codegen_request.json src/lib/db/gen
 ```
 
-Writes one file per query file (`users.sql` → `users.ts`), `enums.ts` when the schema has enums, and `runtime.ts` (copied as is, so the output has no dependency on this package). Generated files from query files that no longer exist are removed; other files in the directory are left alone.
+Writes one file per query file (`users.sql` → `users.ts`), `enums.ts` when the schema has enums, and `runtime.ts` for the engine (copied as is, so the output has no dependency on this package). Generated files from query files that no longer exist are removed; other files in the directory are left alone.
 
 ```ts
+// Postgres, with postgres.js
 import postgres from "postgres";
 import { fromPostgresJs } from "./gen/runtime";
 import { getUser } from "./gen/users";
@@ -34,7 +35,15 @@ const db = fromPostgresJs(postgres(process.env.DATABASE_URL));
 const user = await getUser(db, { id }); // GetUserRow | null
 ```
 
-Supported commands: `:one` (row or null), `:many`, `:exec`, `:execrows` (affected row count). Column and parameter names become camelCase.
+```ts
+// SQLite, with node:sqlite (better-sqlite3 has the same shape)
+import { DatabaseSync } from "node:sqlite";
+import { fromSqlite } from "./gen/runtime";
+
+const db = fromSqlite(new DatabaseSync("app.db"));
+```
+
+Supported commands: `:one` (row or null), `:many`, `:exec`, `:execrows` (affected row count). Column and parameter names become camelCase. Any object with the `Executor` shape works in place of the adapters, so a transaction handle or a pooled client can be passed the same way.
 
 ## Overriding nullability
 
@@ -49,7 +58,19 @@ sqlc's type inference is a reimplementation of Postgres', and it reads some null
 
 ## Types
 
+### Postgres
+
 Matches postgres.js's default parsers: `int8` and `numeric` are strings (parameters also take number / bigint), `date` / `timestamp(tz)` are `Date`, `json(b)` is `JsonValue`, `bytea` is `Uint8Array`, enums are string unions, and types without a parser come back as their text, so `string`. Array elements are assumed non-null.
+
+`sqlc.slice()` is not available on Postgres (sqlc itself does not support it there); use `= ANY(@ids::bigint[])`.
+
+### SQLite
+
+Follows SQLite's [type affinity](https://www.sqlite.org/datatype3.html) for the declared type: INTEGER affinity is `number` (parameters also take `bigint`), REAL is `number`, TEXT is `string`, BLOB is `Uint8Array`, and NUMERIC is `number | string` since SQLite keeps text that does not parse. `BOOLEAN` is `number` (parameters also take `boolean`), `DATE` / `DATETIME` / `TIMESTAMP` and `JSON` are `string`.
+
+Integers outside the safe range throw in node:sqlite and better-sqlite3 by default; turn on their bigint mode and cast if you store them.
+
+`sqlc.slice()` is supported: the parameter becomes an array, and the generated function expands the placeholders at call time. An empty array expands to `NULL`, as in sqlc's own Go output, so `IN ()` matches nothing and `NOT IN ()` matches nothing either. sqlc types a parameter from its first use, so write `price >= sqlc.narg('min')` before `sqlc.narg('min') IS NULL`, or the parameter comes out untyped.
 
 ## Development
 
@@ -60,7 +81,9 @@ pnpm install
 pnpm test
 pnpm typecheck
 pnpm lint       # biome check
-pnpm fixture    # after changing the generator: regenerates test/fixture (needs sqlc)
+pnpm fixture    # after changing the generator: regenerates test/fixture/* (needs sqlc)
 ```
 
-`test/fixture/gen` is the committed output for the fixture schema; the tests compare against it and `pnpm typecheck` compiles it.
+`test/fixture/{postgres,sqlite}/gen` are the committed outputs for the fixture schemas; the tests compare against them, `pnpm typecheck` compiles them, and the SQLite output is run against an in-memory `node:sqlite` database.
+
+Engine-specific code lives in `src/dialects/<engine>/`: the type map, the runtime copied into the output, and (for SQLite) the placeholder rewriting.

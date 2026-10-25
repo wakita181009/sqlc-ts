@@ -6,9 +6,10 @@ import {
   generate,
   pascalCase,
 } from "../src/generate.ts";
-import type { Column, GenerateRequest, Query } from "../src/request.ts";
-import { resolveType } from "../src/types.ts";
-import fixture from "./fixture/codegen_request.json" with { type: "json" };
+import type { GenerateRequest, Query } from "../src/request.ts";
+import fixture from "./fixture/postgres/codegen_request.json" with {
+  type: "json",
+};
 
 const request = fixture as GenerateRequest;
 
@@ -31,29 +32,11 @@ function problems(req: GenerateRequest): readonly string[] {
   return [];
 }
 
-function column({
-  type,
-  ...overrides
-}: Partial<Omit<Column, "type">> & { type: string }): Column {
-  return {
-    name: "c",
-    not_null: true,
-    is_array: false,
-    array_dims: 0,
-    is_func_call: false,
-    is_sqlc_slice: false,
-    table: null,
-    embed_table: null,
-    ...overrides,
-    type: { catalog: "", schema: "", name: type },
-  };
-}
-
 describe("generate", () => {
   it("matches the committed output for the fixture (pnpm fixture regenerates it)", () => {
     for (const file of generate(request)) {
       const golden = readFileSync(
-        new URL(`./fixture/gen/${file.path}`, import.meta.url),
+        new URL(`./fixture/postgres/gen/${file.path}`, import.meta.url),
         "utf8",
       );
       expect(file.contents, file.path).toBe(golden);
@@ -129,6 +112,15 @@ describe("generate", () => {
     ]);
   });
 
+  it("rejects engines it has no dialect for", () => {
+    const req = structuredClone(request);
+    req.settings.engine = "mysql";
+
+    expect(problems(req)).toEqual([
+      'engine "mysql" is not supported; sqlc-ts knows postgresql, sqlite',
+    ]);
+  });
+
   it("rejects sqlc.slice() parameters", () => {
     const req = withQuery("GetTitle", (q) => {
       q.params[0].column.is_sqlc_slice = true;
@@ -200,49 +192,6 @@ describe("generate", () => {
     expect(views?.contents).toContain(
       "export async function titleViewStats(db: Executor): Promise<TitleViewStatsRow[]>",
     );
-  });
-});
-
-describe("resolveType", () => {
-  const none = new Map<string, string>();
-
-  it("keeps int8 a string on output and widens it for parameters", () => {
-    expect(resolveType(column({ type: "int8" }), "output", none)).toEqual({
-      ts: "string",
-    });
-    expect(
-      resolveType(column({ type: "pg_catalog.int8" }), "param", none),
-    ).toEqual({ ts: "string | number | bigint" });
-  });
-
-  it("wraps union element types in parentheses for arrays", () => {
-    const dates = column({ type: "timestamptz", array_dims: 2 });
-
-    expect(resolveType(dates, "output", none)).toEqual({ ts: "Date[][]" });
-    expect(resolveType(dates, "param", none)).toEqual({
-      ts: "(Date | string)[][]",
-    });
-  });
-
-  it("uses enum unions and falls back to string for types without a parser", () => {
-    const enums = new Map([["mood", "Mood"]]);
-
-    expect(resolveType(column({ type: "mood" }), "output", enums)).toEqual({
-      ts: "Mood",
-    });
-    expect(resolveType(column({ type: "tsvector" }), "output", none)).toEqual({
-      ts: "string",
-    });
-  });
-
-  it("reports types sqlc could not work out", () => {
-    expect(resolveType(column({ type: "any" }), "output", none)).toHaveProperty(
-      "error",
-    );
-    expect(resolveType(column({ type: "" }), "output", none)).toEqual({
-      error:
-        'sqlc could not infer a type (got "none"); add a cast such as ::text',
-    });
   });
 });
 

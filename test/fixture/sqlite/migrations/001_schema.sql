@@ -1,0 +1,25 @@
+CREATE TABLE titles (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'draft',
+  price NUMERIC(10, 2),
+  rating REAL,
+  meta JSON,
+  poster BLOB,
+  is_public BOOLEAN NOT NULL DEFAULT 0,
+  published_on DATE,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE views (
+  title_id INTEGER NOT NULL REFERENCES titles (id),
+  viewed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE misc (
+  label VARCHAR(255) NOT NULL,
+  count INT,
+  code CHARACTER(20),
+  ratio DOUBLE PRECISION,
+  big UNSIGNED BIG INT
+);

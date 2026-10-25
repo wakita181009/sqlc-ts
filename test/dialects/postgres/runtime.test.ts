@@ -1,5 +1,5 @@
 import { expect, it, vi } from "vitest";
-import { fromPostgresJs } from "../src/runtime.ts";
+import { fromPostgresJs } from "../../../src/dialects/postgres/runtime.ts";
 
 it("adapts postgres.js unsafe() to an Executor", async () => {
   const rows = Object.assign([{ id: 1 }], { count: 1 });
