@@ -56,14 +56,14 @@ jobs:
           include-hidden-files: true
           if-no-files-found: error
 
-  # Installs the packed tarballs the way a user would, on each OS, with the oldest supported
-  # Node, and generates the SQLite fixture with the bundled sqlc.
+  # Installs the packed tarballs the way a user would, on each OS with a platform package,
+  # with the oldest supported Node, and generates the SQLite fixture with the bundled sqlc.
   install:
     needs: bundled-sqlc
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     defaults:
       run:

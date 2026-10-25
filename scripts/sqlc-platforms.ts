@@ -14,14 +14,16 @@ export function sqlcVersion(
   return match[1];
 }
 
-/** One sqlc-ts-<platform>-<arch> package per asset of sqlc's GitHub release. */
+/**
+ * One sqlc-ts-<platform>-<arch> package per asset of sqlc's GitHub release. Windows is left
+ * out for now: npm refuses to create the sqlc-ts-win32-* packages (403). Windows users can
+ * install sqlc themselves or set SQLC_PATH.
+ */
 export const SQLC_PLATFORMS = [
   { platform: "darwin", arch: "arm64", asset: "darwin_arm64.tar.gz" },
   { platform: "darwin", arch: "x64", asset: "darwin_amd64.tar.gz" },
   { platform: "linux", arch: "arm64", asset: "linux_arm64.tar.gz" },
   { platform: "linux", arch: "x64", asset: "linux_amd64.tar.gz" },
-  { platform: "win32", arch: "arm64", asset: "windows_arm64.zip" },
-  { platform: "win32", arch: "x64", asset: "windows_amd64.zip" },
 ] as const;
 
 export type SqlcPlatform = (typeof SQLC_PLATFORMS)[number];
