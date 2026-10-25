@@ -206,3 +206,206 @@ export async function quotedLiteral(db: Executor): Promise<QuotedLiteralRow | nu
   const first = rows.at(0);
   return first ? toRow(first) : null;
 }
+
+const listTitlesPagedSql = `SELECT id, name FROM titles ORDER BY id LIMIT ?2 OFFSET ?1`;
+
+export type ListTitlesPagedArgs = {
+  pageOffset: number | bigint;
+  pageSize: number | bigint;
+};
+
+export type ListTitlesPagedRow = {
+  id: number;
+  name: string;
+};
+
+/**
+ * :name and $name placeholders, which sqlc rewrites to ?N like @name.
+ */
+export async function listTitlesPaged(db: Executor, args: ListTitlesPagedArgs): Promise<ListTitlesPagedRow[]> {
+  const { rows } = await db(listTitlesPagedSql, [args.pageOffset, args.pageSize]);
+  return rows.map((row: Row): ListTitlesPagedRow => ({
+    id: row.id as number,
+    name: row.name as string,
+  }));
+}
+
+const countTitlesSql = `SELECT count(*) AS count FROM titles`;
+
+export type CountTitlesRow = {
+  count: number;
+};
+
+/**
+ * SQLite names an unaliased expression column by its text (`count(*)`), not the `count`
+ * sqlc guesses, so expression columns need an alias here. Postgres names them as sqlc does.
+ */
+export async function countTitles(db: Executor): Promise<CountTitlesRow | null> {
+  const { rows } = await db(countTitlesSql, []);
+  const toRow = (row: Row): CountTitlesRow => ({
+    count: row.count as number,
+  });
+  const first = rows.at(0);
+  return first ? toRow(first) : null;
+}
+
+const titleExistsSql = `SELECT EXISTS (SELECT 1 FROM titles WHERE id = ?1) AS title_exists`;
+
+export type TitleExistsArgs = {
+  id: number | bigint;
+};
+
+export type TitleExistsRow = {
+  titleExists: number;
+};
+
+export async function titleExists(db: Executor, args: TitleExistsArgs): Promise<TitleExistsRow | null> {
+  const { rows } = await db(titleExistsSql, [args.id]);
+  const toRow = (row: Row): TitleExistsRow => ({
+    titleExists: row.title_exists as number,
+  });
+  const first = rows.at(0);
+  return first ? toRow(first) : null;
+}
+
+const updateTitleSql = `UPDATE titles
+SET name = COALESCE(?1, name),
+    status = COALESCE(?2, status),
+    price = COALESCE(?3, price)
+WHERE id = ?4
+RETURNING id, name, status, price, rating, meta, poster, is_public, published_on, created_at`;
+
+export type UpdateTitleArgs = {
+  name: string | null;
+  status: string | null;
+  price: number | string | null;
+  id: number | bigint;
+};
+
+export type UpdateTitleRow = {
+  id: number;
+  name: string;
+  status: string;
+  price: number | string | null;
+  rating: number | null;
+  meta: string | null;
+  poster: Uint8Array | null;
+  isPublic: number;
+  publishedOn: string | null;
+  createdAt: string;
+};
+
+/**
+ * Only the fields given change; sqlc.narg() makes each one optional.
+ */
+export async function updateTitle(db: Executor, args: UpdateTitleArgs): Promise<UpdateTitleRow | null> {
+  const { rows } = await db(updateTitleSql, [args.name, args.status, args.price, args.id]);
+  const toRow = (row: Row): UpdateTitleRow => ({
+    id: row.id as number,
+    name: row.name as string,
+    status: row.status as string,
+    price: row.price as number | string | null,
+    rating: row.rating as number | null,
+    meta: row.meta as string | null,
+    poster: row.poster as Uint8Array | null,
+    isPublic: row.is_public as number,
+    publishedOn: row.published_on as string | null,
+    createdAt: row.created_at as string,
+  });
+  const first = rows.at(0);
+  return first ? toRow(first) : null;
+}
+
+const upsertTitleSql = `INSERT INTO titles (id, name) VALUES (?1, ?2)
+ON CONFLICT (id) DO UPDATE SET name = excluded.name`;
+
+export type UpsertTitleArgs = {
+  id: number | bigint;
+  name: string;
+};
+
+export async function upsertTitle(db: Executor, args: UpsertTitleArgs): Promise<void> {
+  await db(upsertTitleSql, [args.id, args.name]);
+}
+
+const publishTitlesSql = `UPDATE titles SET status = 'published' WHERE id IN (/*SLICE:ids*/?) RETURNING id, status`;
+
+export type PublishTitlesArgs = {
+  ids: (number | bigint)[];
+};
+
+export type PublishTitlesRow = {
+  id: number;
+  status: string;
+};
+
+export async function publishTitles(db: Executor, args: PublishTitlesArgs): Promise<PublishTitlesRow[]> {
+  const [query, values] = expandSlices(publishTitlesSql, [], [args.ids]);
+  const { rows } = await db(query, values);
+  return rows.map((row: Row): PublishTitlesRow => ({
+    id: row.id as number,
+    status: row.status as string,
+  }));
+}
+
+const listTitlesNotInSql = `SELECT id, name FROM titles
+WHERE id NOT IN (/*SLICE:ids*/?) -- what about this ? here
+  /* or this ?2 one */
+ORDER BY id`;
+
+export type ListTitlesNotInArgs = {
+  ids: (number | bigint)[];
+};
+
+export type ListTitlesNotInRow = {
+  id: number;
+  name: string;
+};
+
+/**
+ * Comments inside the statement are skipped by the placeholder scanner, '?' and all.
+ */
+export async function listTitlesNotIn(db: Executor, args: ListTitlesNotInArgs): Promise<ListTitlesNotInRow[]> {
+  const [query, values] = expandSlices(listTitlesNotInSql, [], [args.ids]);
+  const { rows } = await db(query, values);
+  return rows.map((row: Row): ListTitlesNotInRow => ({
+    id: row.id as number,
+    name: row.name as string,
+  }));
+}
+
+const recordViewSql = `INSERT INTO views (title_id)
+SELECT ?1 WHERE EXISTS (SELECT 1 FROM titles WHERE id = ?1)`;
+
+export type RecordViewArgs = {
+  titleId: number | bigint;
+};
+
+/**
+ * The same parameter twice becomes one argument.
+ */
+export async function recordView(db: Executor, args: RecordViewArgs): Promise<void> {
+  await db(recordViewSql, [args.titleId]);
+}
+
+const recentlyViewedTitlesSql = `WITH recent AS (
+  SELECT title_id, CAST(max(viewed_at) AS TEXT) AS last_viewed_at FROM views GROUP BY title_id
+)
+SELECT t.id, t.name, recent.last_viewed_at
+FROM titles t JOIN recent ON recent.title_id = t.id
+ORDER BY recent.last_viewed_at DESC`;
+
+export type RecentlyViewedTitlesRow = {
+  id: number;
+  name: string;
+  lastViewedAt: string;
+};
+
+export async function recentlyViewedTitles(db: Executor): Promise<RecentlyViewedTitlesRow[]> {
+  const { rows } = await db(recentlyViewedTitlesSql, []);
+  return rows.map((row: Row): RecentlyViewedTitlesRow => ({
+    id: row.id as number,
+    name: row.name as string,
+    lastViewedAt: row.last_viewed_at as string,
+  }));
+}

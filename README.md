@@ -105,6 +105,8 @@ Follows SQLite's [type affinity](https://www.sqlite.org/datatype3.html) for the 
 
 Integers outside the safe range throw in node:sqlite and better-sqlite3 by default; turn on their bigint mode and cast if you store them.
 
+Alias expression columns (`count(*) AS count`, `EXISTS (...) AS found`). sqlc names an unaliased one `count` or `exists`, but SQLite returns it under its text (`count(*)`), so the generated row mapper would read `undefined`.
+
 `sqlc.slice()` is supported: the parameter becomes an array, and the generated function expands the placeholders at call time. An empty array expands to `NULL`, as in sqlc's own Go output, so `IN ()` matches nothing and `NOT IN ()` matches nothing either. sqlc types a parameter from its first use, so write `price >= sqlc.narg('min')` before `sqlc.narg('min') IS NULL`, or the parameter comes out untyped.
 
 ## Development

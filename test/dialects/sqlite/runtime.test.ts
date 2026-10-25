@@ -5,8 +5,14 @@ import {
   expandSlices,
   fromSqlite,
 } from "../../../src/dialects/sqlite/runtime.ts";
+import {
+  countMisc,
+  createMisc,
+  getMisc,
+} from "../../fixture/sqlite/gen/misc.ts";
 import type { Executor } from "../../fixture/sqlite/gen/runtime.ts";
 import {
+  countTitles,
   createTitle,
   deleteTitle,
   getTitle,
@@ -14,10 +20,22 @@ import {
   listTitlesByIdsOrNames,
   listTitlesByIdsTwice,
   listTitlesByStatus,
+  listTitlesNotIn,
+  listTitlesPaged,
+  publishTitles,
   quotedLiteral,
+  recentlyViewedTitles,
+  recordView,
   renameTitle,
+  titleExists,
+  updateTitle,
+  upsertTitle,
 } from "../../fixture/sqlite/gen/titles.ts";
-import { titleViewStats } from "../../fixture/sqlite/gen/views.ts";
+import {
+  deleteAllViews,
+  titleViewStats,
+  viewedTitles,
+} from "../../fixture/sqlite/gen/views.ts";
 
 const schema = readFileSync(
   new URL("../../fixture/sqlite/migrations/001_schema.sql", import.meta.url),
@@ -124,6 +142,101 @@ describe("generated sqlite code against node:sqlite", () => {
 
     expect(stats).toHaveLength(3);
     expect(stats[0]).toEqual({ id: 1, views: 0, lastViewedAt: null });
+  });
+});
+
+describe("generated sqlite code: more statement shapes", () => {
+  it("pages with :name and $name placeholders and counts with count(*)", async () => {
+    await seed();
+
+    const page = await listTitlesPaged(db, { pageSize: 2, pageOffset: 1 });
+
+    expect(page.map((row) => row.name)).toEqual(["b", "c"]);
+    expect(await countTitles(db)).toEqual({ count: 3 });
+  });
+
+  it("returns EXISTS as 0 or 1", async () => {
+    const [id] = await seed();
+
+    expect(await titleExists(db, { id })).toEqual({ titleExists: 1 });
+    expect(await titleExists(db, { id: 999 })).toEqual({ titleExists: 0 });
+  });
+
+  it("updates only the fields given through COALESCE(sqlc.narg())", async () => {
+    const [id] = await seed();
+
+    const row = await updateTitle(db, {
+      id,
+      name: null,
+      status: "published",
+      price: null,
+    });
+
+    expect(row?.name).toBe("a");
+    expect(row?.status).toBe("published");
+    expect(row?.price).toBe(1);
+  });
+
+  it("upserts on the primary key", async () => {
+    const [id] = await seed();
+
+    await upsertTitle(db, { id, name: "renamed" });
+    await upsertTitle(db, { id: 42, name: "new" });
+
+    expect((await getTitle(db, { id }))?.name).toBe("renamed");
+    expect((await getTitle(db, { id: 42 }))?.name).toBe("new");
+  });
+
+  it("runs UPDATE ... RETURNING :many with a slice, and NOT IN with a slice", async () => {
+    const [a, b, c] = await seed();
+
+    const published = await publishTitles(db, { ids: [a, c] });
+    const rest = await listTitlesNotIn(db, { ids: [a, c] });
+    const all = await listTitlesNotIn(db, { ids: [] });
+
+    expect(published).toEqual([
+      { id: a, status: "published" },
+      { id: c, status: "published" },
+    ]);
+    expect(rest.map((row) => row.id)).toEqual([b]);
+    // NOT IN (NULL) is never true, matching what sqlc generates for Go.
+    expect(all).toEqual([]);
+  });
+
+  it("binds one argument for a parameter used twice, and @notnull drops the null", async () => {
+    const [a] = await seed();
+
+    await recordView(db, { titleId: a });
+    await recordView(db, { titleId: 999 });
+    const viewed = await viewedTitles(db);
+    const recent = await recentlyViewedTitles(db);
+
+    expect(viewed).toHaveLength(1);
+    expect(viewed[0]?.id).toBe(a);
+    expect(viewed[0]?.viewedAt).toMatch(/^\d{4}-/);
+    expect(recent.map((row) => row.name)).toEqual(["a"]);
+
+    await deleteAllViews(db);
+    expect(await viewedTitles(db)).toEqual([]);
+  });
+
+  it("round-trips the misc affinities", async () => {
+    await createMisc(db, {
+      label: "x",
+      count: 3,
+      code: "abc",
+      ratio: 0.5,
+      big: null,
+    });
+
+    expect(await countMisc(db)).toEqual({ count: 1 });
+    expect(await getMisc(db, { label: "x" })).toEqual({
+      label: "x",
+      count: 3,
+      code: "abc",
+      ratio: 0.5,
+      big: null,
+    });
   });
 });
 

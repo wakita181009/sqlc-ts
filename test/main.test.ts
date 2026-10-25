@@ -63,6 +63,7 @@ describe("main", () => {
 
     expect((await readdir(outDir)).sort()).toEqual([
       "enums.ts",
+      "misc.ts",
       "runtime.ts",
       "titles.ts",
       "views.ts",
@@ -73,7 +74,7 @@ describe("main", () => {
     );
     expect(await readFile(join(outDir, "runtime.ts"), "utf8")).toBe(golden);
     expect(log).toHaveBeenCalledWith(
-      expect.stringContaining(`wrote 4 file(s) to ${outDir}`),
+      expect.stringContaining(`wrote 5 file(s) to ${outDir}`),
     );
   });
 

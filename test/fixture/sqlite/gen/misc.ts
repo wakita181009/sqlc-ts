@@ -28,3 +28,32 @@ export async function getMisc(db: Executor, args: GetMiscArgs): Promise<GetMiscR
   const first = rows.at(0);
   return first ? toRow(first) : null;
 }
+
+const createMiscSql = `INSERT INTO misc (label, count, code, ratio, big) VALUES (?1, ?2, ?3, ?4, ?5)`;
+
+export type CreateMiscArgs = {
+  label: string;
+  count: number | bigint | null;
+  code: string | null;
+  ratio: number | null;
+  big: number | bigint | null;
+};
+
+export async function createMisc(db: Executor, args: CreateMiscArgs): Promise<void> {
+  await db(createMiscSql, [args.label, args.count, args.code, args.ratio, args.big]);
+}
+
+const countMiscSql = `SELECT count(*) AS count FROM misc`;
+
+export type CountMiscRow = {
+  count: number;
+};
+
+export async function countMisc(db: Executor): Promise<CountMiscRow | null> {
+  const { rows } = await db(countMiscSql, []);
+  const toRow = (row: Row): CountMiscRow => ({
+    count: row.count as number,
+  });
+  const first = rows.at(0);
+  return first ? toRow(first) : null;
+}

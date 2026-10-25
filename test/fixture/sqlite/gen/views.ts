@@ -25,3 +25,30 @@ export async function titleViewStats(db: Executor): Promise<TitleViewStatsRow[]>
     lastViewedAt: row.last_viewed_at as string | null,
   }));
 }
+
+const viewedTitlesSql = `SELECT t.id, v.viewed_at
+FROM titles t LEFT JOIN views v ON v.title_id = t.id
+WHERE v.viewed_at IS NOT NULL
+ORDER BY v.viewed_at DESC`;
+
+export type ViewedTitlesRow = {
+  id: number;
+  viewedAt: string;
+};
+
+/**
+ * The WHERE rules out the LEFT JOIN's nulls, which sqlc cannot see.
+ */
+export async function viewedTitles(db: Executor): Promise<ViewedTitlesRow[]> {
+  const { rows } = await db(viewedTitlesSql, []);
+  return rows.map((row: Row): ViewedTitlesRow => ({
+    id: row.id as number,
+    viewedAt: row.viewed_at as string,
+  }));
+}
+
+const deleteAllViewsSql = `DELETE FROM views`;
+
+export async function deleteAllViews(db: Executor): Promise<void> {
+  await db(deleteAllViewsSql, []);
+}

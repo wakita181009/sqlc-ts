@@ -7,3 +7,14 @@ FROM titles t
 LEFT JOIN views v ON v.title_id = t.id
 LEFT JOIN LATERAL (SELECT viewed_at FROM views WHERE title_id = t.id LIMIT 1) v2 ON true
 GROUP BY t.id, v2.viewed_at;
+
+-- The WHERE rules out the LEFT JOIN's nulls, which sqlc cannot see.
+-- @notnull viewed_at
+-- name: ViewedTitles :many
+SELECT t.id, v.viewed_at
+FROM titles t LEFT JOIN views v ON v.title_id = t.id
+WHERE v.viewed_at IS NOT NULL
+ORDER BY v.viewed_at DESC;
+
+-- name: DeleteAllViews :exec
+DELETE FROM views;
