@@ -1,5 +1,7 @@
 # sqlc-ts
 
+[![CI](https://github.com/wakita181009/sqlc-ts/actions/workflows/ci.yml/badge.svg)](https://github.com/wakita181009/sqlc-ts/actions/workflows/ci.yml) [![codecov](https://codecov.io/gh/wakita181009/sqlc-ts/graph/badge.svg)](https://codecov.io/gh/wakita181009/sqlc-ts)
+
 Unofficial, not affiliated with sqlc (and unrelated to the `sqlc-typescript` npm package or sqlc's own `sqlc-gen-typescript` plugin).
 
 Turns sqlc's analysis of raw SQL into typed TypeScript functions. sqlc does the checking (every query against the schema, statically, no database needed); this package only writes the TS side, from the JSON sqlc emits with `gen: json`. Supports sqlc's `postgresql` and `sqlite` engines.
