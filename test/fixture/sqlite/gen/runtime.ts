@@ -22,6 +22,9 @@ type SqliteDatabase = {
 
 export function fromSqlite(db: SqliteDatabase): Executor {
   return async (query, params) => {
+    // BOOLEAN parameters take booleans, but better-sqlite3 and older node:sqlite (Node 22)
+    // reject them, so bind 1 / 0 the way SQLite stores them.
+    params = params.map((p) => (typeof p === "boolean" ? Number(p) : p));
     const statement = db.prepare(query);
     // all() on a statement without result columns returns nothing useful, and run() is the
     // only way to get the affected row count.
