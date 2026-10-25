@@ -27,7 +27,7 @@ schema + queries (.sql)
 Install [sqlc](https://docs.sqlc.dev/en/latest/overview/install.html) (`brew install sqlc` or `go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest`), then:
 
 ```sh
-npm install -D sqlc-ts   # needs Node 26+
+npm install -D sqlc-ts   # needs Node 22+
 ```
 
 ```yaml
@@ -98,7 +98,7 @@ Integers outside the safe range throw in node:sqlite and better-sqlite3 by defau
 
 ## Development
 
-Node and pnpm versions are pinned in `mise.toml` (`mise install`).
+Development uses Node 26; Node and pnpm versions are pinned in `mise.toml` (`mise install`). The published CLI supports Node 22+, and CI runs the tests on both.
 
 ```sh
 pnpm install
