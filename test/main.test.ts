@@ -31,6 +31,26 @@ describe("main", () => {
     expect(error).toHaveBeenCalledWith(expect.stringContaining("Usage:"));
   });
 
+  it("prints usage to stdout and exits 0 for --help", async () => {
+    expect(await main(["--help"])).toBe(0);
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("Usage:"));
+    expect(error).not.toHaveBeenCalled();
+  });
+
+  it("prints the package version for --version", async () => {
+    const { version } = JSON.parse(
+      await readFile(new URL("../package.json", import.meta.url), "utf8"),
+    );
+    expect(await main(["--version"])).toBe(0);
+    expect(log).toHaveBeenCalledWith(version);
+  });
+
+  it("rejects an unknown flag with usage and exit 2", async () => {
+    expect(await main(["--bogus", requestPath, outDir])).toBe(2);
+    expect(error).toHaveBeenCalledWith(expect.stringContaining("--bogus"));
+    expect(error).toHaveBeenCalledWith(expect.stringContaining("Usage:"));
+  });
+
   it("writes the generated files plus runtime.ts and reports the count", async () => {
     expect(await main([requestPath, outDir])).toBe(0);
 

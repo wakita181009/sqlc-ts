@@ -1,12 +1,62 @@
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { join } from "node:path";
+import { parseArgs } from "node:util";
 import { GENERATED_MARKER, GenerateError, generate } from "./generate.ts";
 import type { GenerateRequest } from "./request.ts";
 
-const USAGE = "Usage: sqlc-ts <codegen_request.json> <out-dir>";
+const USAGE = `Usage: sqlc-ts <codegen_request.json> <out-dir>
+
+Options:
+  --help     Show this message
+  --version  Print the version`;
+
+const OPTIONS = {
+  help: { type: "boolean", default: false },
+  version: { type: "boolean", default: false },
+} as const;
+
+type Cli =
+  | { help: boolean; version: boolean; positionals: string[] }
+  | { error: string };
+
+function parseCli(args: readonly string[]): Cli {
+  try {
+    const { values, positionals } = parseArgs({
+      args: [...args],
+      options: OPTIONS,
+      allowPositionals: true,
+    });
+    return { ...values, positionals };
+  } catch (err) {
+    // parseArgs only throws Error subclasses (ERR_PARSE_ARGS_*).
+    return { error: (err as Error).message };
+  }
+}
+
+function packageVersion(): string {
+  const pkg = createRequire(import.meta.url)("../package.json") as {
+    version: string;
+  };
+  return pkg.version;
+}
 
 export async function main(args: readonly string[]): Promise<number> {
-  const [requestPath, outDir] = args;
+  const cli = parseCli(args);
+  if ("error" in cli) {
+    console.error(`sqlc-ts: ${cli.error}`);
+    console.error(USAGE);
+    return 2;
+  }
+  if (cli.help) {
+    console.log(USAGE);
+    return 0;
+  }
+  if (cli.version) {
+    console.log(packageVersion());
+    return 0;
+  }
+  const [requestPath, outDir] = cli.positionals;
   if (!requestPath || !outDir) {
     console.error(USAGE);
     return 2;
