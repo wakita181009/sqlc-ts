@@ -129,6 +129,16 @@ describe("generate", () => {
     expect(problems(req)[0]).toContain("sqlc.slice() is not supported");
   });
 
+  it("rejects query names that camelCase to a JS reserved word", () => {
+    const req = withQuery("DeleteTitle", (q) => {
+      q.name = "Delete";
+    });
+
+    expect(problems(req)).toEqual([
+      'titles.sql Delete: "delete" is a reserved word in JS; rename the query',
+    ]);
+  });
+
   it("refuses a query file whose output would overwrite runtime.ts", () => {
     const req = withQuery("GetTitle", (q) => {
       q.filename = "runtime.sql";
