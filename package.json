@@ -12,7 +12,6 @@
     "sqlite"
   ],
   "license": "MIT",
-  "author": "Tetsuya Wakita",
   "repository": "github:wakita181009/sqlc-ts",
   "homepage": "https://github.com/wakita181009/sqlc-ts#readme",
   "bugs": "https://github.com/wakita181009/sqlc-ts/issues",
