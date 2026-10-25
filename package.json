@@ -12,7 +12,10 @@
     "sqlite"
   ],
   "license": "MIT",
-  "repository": "github:wakita181009/sqlc-ts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wakita181009/sqlc-ts.git"
+  },
   "homepage": "https://github.com/wakita181009/sqlc-ts#readme",
   "bugs": "https://github.com/wakita181009/sqlc-ts/issues",
   "type": "module",
@@ -36,7 +39,7 @@
     "lint:fix": "biome check --write",
     "fixture": "export SQLC_PATH=\"${SQLC_PATH:-$PWD/.sqlc/bin/sqlc}\"; for d in postgres sqlite; do (cd test/fixture/$d && node ../../../src/cli.ts generate codegen_request.json gen) || exit 1; done",
     "prepare": "husky",
-    "prepublishOnly": "echo 'Publish with pnpm release: it adds the sqlc platform packages.' && exit 1",
+    "prepublishOnly": "echo 'Publish through the Release workflow (pnpm release): it adds the sqlc platform packages.' && exit 1",
     "sqlc:fetch": "node scripts/sqlc-packages.ts fetch",
     "release": "pnpm lint && pnpm typecheck && pnpm test && pnpm pack:all && node scripts/sqlc-packages.ts publish .pack",
     "pack:all": "pnpm build && node scripts/sqlc-packages.ts pack .pack"
