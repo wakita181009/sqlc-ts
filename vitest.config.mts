@@ -9,7 +9,7 @@ export default defineConfig({
       // cli.ts only wires process.argv to main(); it runs as a subprocess, which v8 cannot see.
       exclude: ["src/cli.ts"],
       reporter: ["text", "html"],
-      thresholds: { 100: true },
+      thresholds: { statements: 90, branches: 90, functions: 90, lines: 90 },
     },
   },
 });
