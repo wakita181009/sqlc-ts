@@ -1,5 +1,5 @@
 [tools]
 node = "26.12.1"
 pnpm = "12.15.0"
-# Only needed for `pnpm fixture`
+# Optional: `pnpm fixture` uses the bundled sqlc after `pnpm sqlc:fetch --current`
 "aqua:sqlc-dev/sqlc" = "1.31.1"

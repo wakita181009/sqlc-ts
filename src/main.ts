@@ -4,20 +4,35 @@ import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { GENERATED_MARKER, GenerateError, generate } from "./generate.ts";
 import type { GenerateRequest } from "./request.ts";
+import { runSqlc } from "./sqlc.ts";
 
-const USAGE = `Usage: sqlc-ts <codegen_request.json> <out-dir>
+const USAGE = `Usage: sqlc-ts generate <codegen_request.json> <out-dir> [-f sqlc.yaml]
+       sqlc-ts <codegen_request.json> <out-dir>
+       sqlc-ts sqlc [sqlc args...]
+
+Commands:
+  generate   Run \`sqlc generate\`, then write TypeScript from its JSON output
+  (none)     Write TypeScript from JSON that sqlc already generated
+  sqlc       Run the bundled sqlc with the given arguments
 
 Options:
-  --help     Show this message
-  --version  Print the version`;
+  -f, --file  sqlc config file passed to \`sqlc generate\` (generate only)
+  --help      Show this message
+  --version   Print the version`;
 
 const OPTIONS = {
+  file: { type: "string", short: "f" },
   help: { type: "boolean", default: false },
   version: { type: "boolean", default: false },
 } as const;
 
 type Cli =
-  | { help: boolean; version: boolean; positionals: string[] }
+  | {
+      file?: string | undefined;
+      help: boolean;
+      version: boolean;
+      positionals: string[];
+    }
   | { error: string };
 
 function parseCli(args: readonly string[]): Cli {
@@ -42,6 +57,9 @@ function packageVersion(): string {
 }
 
 export async function main(args: readonly string[]): Promise<number> {
+  // Everything after `sqlc` belongs to sqlc, flags included.
+  if (args[0] === "sqlc") return runSqlc(args.slice(1));
+
   const cli = parseCli(args);
   if ("error" in cli) {
     console.error(`sqlc-ts: ${cli.error}`);
@@ -56,10 +74,24 @@ export async function main(args: readonly string[]): Promise<number> {
     console.log(packageVersion());
     return 0;
   }
-  const [requestPath, outDir] = cli.positionals;
-  if (!requestPath || !outDir) {
+  const runGenerate = cli.positionals[0] === "generate";
+  const [requestPath, outDir, ...extra] = runGenerate
+    ? cli.positionals.slice(1)
+    : cli.positionals;
+  if (!requestPath || !outDir || extra.length > 0) {
     console.error(USAGE);
     return 2;
+  }
+  if (cli.file !== undefined && !runGenerate) {
+    console.error("sqlc-ts: --file only applies to generate");
+    console.error(USAGE);
+    return 2;
+  }
+  if (runGenerate) {
+    const code = await runSqlc(
+      cli.file === undefined ? ["generate"] : ["generate", "-f", cli.file],
+    );
+    if (code !== 0) return code;
   }
   const request = JSON.parse(
     await readFile(requestPath, "utf8"),

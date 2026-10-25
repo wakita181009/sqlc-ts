@@ -184,6 +184,37 @@ importers:
       vitest:
         specifier: 5.0.5
         version: 5.0.5(@types/node@26.6.5)(@vitest/coverage-v8@5.0.5)(vite@8.3.5(@types/node@26.6.5))
+    optionalDependencies:
+      sqlc-ts-darwin-arm64:
+        specifier: workspace:*
+        version: link:npm/sqlc-ts-darwin-arm64
+      sqlc-ts-darwin-x64:
+        specifier: workspace:*
+        version: link:npm/sqlc-ts-darwin-x64
+      sqlc-ts-linux-arm64:
+        specifier: workspace:*
+        version: link:npm/sqlc-ts-linux-arm64
+      sqlc-ts-linux-x64:
+        specifier: workspace:*
+        version: link:npm/sqlc-ts-linux-x64
+      sqlc-ts-win32-arm64:
+        specifier: workspace:*
+        version: link:npm/sqlc-ts-win32-arm64
+      sqlc-ts-win32-x64:
+        specifier: workspace:*
+        version: link:npm/sqlc-ts-win32-x64
+
+  npm/sqlc-ts-darwin-arm64: {}
+
+  npm/sqlc-ts-darwin-x64: {}
+
+  npm/sqlc-ts-linux-arm64: {}
+
+  npm/sqlc-ts-linux-x64: {}
+
+  npm/sqlc-ts-win32-arm64: {}
+
+  npm/sqlc-ts-win32-x64: {}
 
 packages:
 

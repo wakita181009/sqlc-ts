@@ -1,4 +1,11 @@
-import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  chmod,
+  mkdtemp,
+  readdir,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -101,5 +108,59 @@ describe("main", () => {
     await writeFile(requestPath, "{}");
 
     await expect(main([requestPath, outDir])).rejects.toThrow(TypeError);
+  });
+});
+
+describe("main with sqlc", () => {
+  // A stand-in for sqlc that records its arguments and exits with $FAKE_SQLC_EXIT.
+  beforeEach(async () => {
+    const bin = join(dir, "fake-sqlc");
+    await writeFile(
+      bin,
+      `#!/bin/sh\necho "$@" >> "${dir}/sqlc-args"\nexit "\${FAKE_SQLC_EXIT:-0}"\n`,
+    );
+    await chmod(bin, 0o755);
+    vi.stubEnv("SQLC_PATH", bin);
+  });
+
+  afterEach(() => vi.unstubAllEnvs());
+
+  const sqlcArgs = () => readFile(join(dir, "sqlc-args"), "utf8");
+
+  it("generate runs sqlc generate, then writes the TypeScript", async () => {
+    expect(await main(["generate", requestPath, outDir])).toBe(0);
+    expect(await sqlcArgs()).toBe("generate\n");
+    expect(await readdir(outDir)).toContain("titles.ts");
+  });
+
+  it("generate passes --file through to sqlc", async () => {
+    expect(
+      await main(["generate", "-f", "db/sqlc.yaml", requestPath, outDir]),
+    ).toBe(0);
+    expect(await sqlcArgs()).toBe("generate -f db/sqlc.yaml\n");
+  });
+
+  it("generate stops with sqlc's exit code when sqlc fails", async () => {
+    vi.stubEnv("FAKE_SQLC_EXIT", "1");
+    expect(await main(["generate", requestPath, outDir])).toBe(1);
+    await expect(readdir(outDir)).rejects.toThrow();
+  });
+
+  it("sqlc passes every argument through, flags included", async () => {
+    vi.stubEnv("FAKE_SQLC_EXIT", "4");
+    expect(await main(["sqlc", "vet", "--help"])).toBe(4);
+    expect(await sqlcArgs()).toBe("vet --help\n");
+  });
+
+  it("rejects --file without generate", async () => {
+    expect(await main(["-f", "sqlc.yaml", requestPath, outDir])).toBe(2);
+    expect(error).toHaveBeenCalledWith(
+      expect.stringContaining("--file only applies to generate"),
+    );
+  });
+
+  it("rejects extra positional arguments", async () => {
+    expect(await main(["generate", requestPath, outDir, "extra"])).toBe(2);
+    expect(error).toHaveBeenCalledWith(expect.stringContaining("Usage:"));
   });
 });
