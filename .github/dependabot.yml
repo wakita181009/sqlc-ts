@@ -4,6 +4,13 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+  # Only sqlc, the release bundled into the platform packages (see tools/sqlc/tools.go).
+  - package-ecosystem: "gomod"
+    directory: "/tools/sqlc"
+    schedule:
+      interval: "weekly"
+    allow:
+      - dependency-name: "github.com/sqlc-dev/sqlc"
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

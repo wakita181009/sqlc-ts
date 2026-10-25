@@ -29,8 +29,10 @@ jobs:
           files: coverage/lcov.info
           fail_ci_if_error: true
 
-  # Runs the real sqlc from the platform package: regenerating the fixtures through
-  # `sqlc-ts generate` must reproduce the committed output.
+  # Runs the real sqlc pinned in tools/sqlc/go.mod from the platform package: the fixtures
+  # regenerated through `sqlc-ts generate` must still typecheck and pass the tests. This is
+  # what vets a Dependabot bump of sqlc; the committed fixtures are not required to match,
+  # since their header names the sqlc version.
   bundled-sqlc:
     strategy:
       matrix:
@@ -44,10 +46,11 @@ jobs:
           node-version: 26
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # Linux fetches every platform so each pinned sha256 is checked, not just its own.
+      # Linux fetches every platform, so a release missing an asset fails before publishing.
       - if: runner.os == 'Linux'
         run: pnpm sqlc:fetch
       - if: runner.os != 'Linux'
         run: pnpm sqlc:fetch --current
       - run: pnpm fixture
-      - run: git diff --exit-code
+      - run: pnpm typecheck
+      - run: pnpm test

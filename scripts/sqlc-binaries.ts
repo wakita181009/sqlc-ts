@@ -5,7 +5,6 @@
 //   node scripts/sqlc-binaries.ts check            from a platform package dir (prepublishOnly)
 
 import { execFileSync } from "node:child_process";
-import { createHash } from "node:crypto";
 import {
   chmodSync,
   copyFileSync,
@@ -18,9 +17,13 @@ import {
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { binaryName, platformPackage } from "../src/sqlc.ts";
-import { SQLC_PLATFORMS, SQLC_VERSION } from "./sqlc-platforms.ts";
+import { SQLC_PLATFORMS, sqlcVersion } from "./sqlc-platforms.ts";
 
 const root = new URL("..", import.meta.url).pathname;
+
+function download(url: string, to: string): void {
+  execFileSync("curl", ["-fsSL", "-o", to, url], { stdio: "inherit" });
+}
 
 function fetchAll(current: boolean): void {
   const targets = SQLC_PLATFORMS.filter(
@@ -30,20 +33,20 @@ function fetchAll(current: boolean): void {
   if (targets.length === 0) {
     throw new Error(`no sqlc binary for ${process.platform}-${process.arch}`);
   }
+  const version = sqlcVersion();
   const tmp = mkdtempSync(join(tmpdir(), "sqlc-ts-binaries-"));
   try {
+    // Shipped next to each binary; taken from the same tag so it matches what is bundled.
+    const license = join(tmp, "LICENSE");
+    download(
+      `https://raw.githubusercontent.com/sqlc-dev/sqlc/v${version}/LICENSE`,
+      license,
+    );
     for (const target of targets) {
-      const name = `sqlc_${SQLC_VERSION}_${target.asset}`;
+      const name = `sqlc_${version}_${target.asset}`;
       const archive = join(tmp, name);
-      const url = `https://github.com/sqlc-dev/sqlc/releases/download/v${SQLC_VERSION}/${name}`;
-      execFileSync("curl", ["-fsSL", "-o", archive, url], { stdio: "inherit" });
-
-      const sha256 = createHash("sha256")
-        .update(readFileSync(archive))
-        .digest("hex");
-      if (sha256 !== target.sha256) {
-        throw new Error(`${name}: sha256 ${sha256}, expected ${target.sha256}`);
-      }
+      const url = `https://github.com/sqlc-dev/sqlc/releases/download/v${version}/${name}`;
+      download(url, archive);
 
       const pkgDir = join(
         root,
@@ -61,9 +64,9 @@ function fetchAll(current: boolean): void {
       const bin = join(binDir, binaryName(target.platform));
       if (!existsSync(bin)) throw new Error(`${name} has no ${basename(bin)}`);
       chmodSync(bin, 0o755);
-      copyFileSync(join(root, "npm", "sqlc-LICENSE"), join(pkgDir, "LICENSE"));
+      copyFileSync(license, join(pkgDir, "LICENSE"));
       console.log(
-        `${platformPackage(target.platform, target.arch)}: sqlc ${SQLC_VERSION}`,
+        `${platformPackage(target.platform, target.arch)}: sqlc ${version}`,
       );
     }
   } finally {

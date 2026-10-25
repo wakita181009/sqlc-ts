@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { SQLC_PLATFORMS, SQLC_VERSION } from "../scripts/sqlc-platforms.ts";
+import { SQLC_PLATFORMS, sqlcVersion } from "../scripts/sqlc-platforms.ts";
 import { platformPackage } from "../src/sqlc.ts";
 
 const read = (path: string) =>
@@ -39,9 +39,20 @@ describe("platform packages", () => {
     },
   );
 
-  it("bundles the sqlc version that mise.toml pins for development", () => {
-    expect(read("mise.toml")).toContain(
-      `"aqua:sqlc-dev/sqlc" = "${SQLC_VERSION}"`,
+  it("reads the bundled sqlc version from tools/sqlc/go.mod", () => {
+    expect(sqlcVersion()).toMatch(/^\d+\.\d+\.\d+$/);
+  });
+
+  it("finds sqlc in either form of a go.mod require", () => {
+    expect(sqlcVersion("require github.com/sqlc-dev/sqlc v1.31.1\n")).toBe(
+      "1.31.1",
     );
+    expect(
+      sqlcVersion("require (\n\tgithub.com/sqlc-dev/sqlc v1.32.0\n)\n"),
+    ).toBe("1.32.0");
+    // An indirect requirement is not the pin.
+    expect(() =>
+      sqlcVersion("\tgithub.com/sqlc-dev/sqlc v1.32.0 // indirect\n"),
+    ).toThrow("does not require sqlc");
   });
 });
