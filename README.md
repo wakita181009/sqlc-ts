@@ -7,7 +7,8 @@ Type-safe TypeScript from raw SQL, checked statically with no database. Supports
 The analysis is done by [sqlc](https://sqlc.dev), the Go tool. sqlc parses your schema and queries (Postgres's own parser via pg_query for `postgresql`) and checks every query against the schema, all without connecting to a database. This package does not analyze SQL itself: it reads the JSON that sqlc emits with `gen: json` and writes typed TypeScript functions from it.
 
 - **No database needed**: nothing to start in CI, no shadow database, no live introspection. The schema files are the source of truth.
-- **Errors at generate time**: an unknown column, a wrong table, or a type mismatch fails `sqlc generate`, not your app at runtime.
+- **Errors at generate time**: an unknown column, a wrong table, or a type mismatch fails generation, not your app at runtime.
+- **sqlc included**: `npm install` brings a pinned sqlc binary for your platform, so there is no Go toolchain or separate sqlc install.
 - **Plain SQL**: queries are `.sql` files with a `-- name:` comment, not a query builder or an ORM.
 - **PostgreSQL and SQLite**: sqlc's `postgresql` and `sqlite` engines, each with its own type mapping and a small runtime adapter.
 
@@ -22,12 +23,12 @@ schema + queries (.sql)
   → sqlc-ts              (writes .ts query functions + runtime)
 ```
 
+`sqlc-ts generate` runs both steps. The sqlc binary comes from an optional dependency for your platform (`sqlc-ts-linux-x64`, `sqlc-ts-darwin-arm64`, ...; macOS, Linux and Windows on x64 and arm64), which holds the unmodified binary and license from sqlc's GitHub release (sqlc is MIT-licensed). The bundled version is the one pinned in `tools/sqlc/go.mod`.
+
 ## Usage
 
-Install [sqlc](https://docs.sqlc.dev/en/latest/overview/install.html) (`brew install sqlc` or `go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest`), then:
-
 ```sh
-npm install -D sqlc-ts   # needs Node 22+
+npm install -D sqlc-ts   # needs Node 22+; brings sqlc along
 ```
 
 ```yaml
@@ -44,8 +45,18 @@ sql:
 ```
 
 ```sh
-sqlc generate && sqlc-ts db/gen/codegen_request.json src/lib/db/gen
+npx sqlc-ts generate db/gen/codegen_request.json src/lib/db/gen
 ```
+
+This runs `sqlc generate` (pass `-f path/to/sqlc.yaml` if the config is not in the current directory), then writes the TypeScript from the JSON it produced. A query that does not match the schema stops here with sqlc's error, e.g. `db/queries/users.sql:2:8: column "nope" does not exist`.
+
+| Command | |
+|---|---|
+| `sqlc-ts generate <json> <out-dir> [-f sqlc.yaml]` | Run `sqlc generate`, then write TypeScript |
+| `sqlc-ts <json> <out-dir>` | Write TypeScript from JSON sqlc already generated (when you run sqlc yourself) |
+| `sqlc-ts sqlc [args...]` | Run the bundled sqlc, e.g. `sqlc-ts sqlc vet` or `sqlc-ts sqlc version` |
+
+To use a different sqlc, set `SQLC_PATH`. Without it, sqlc-ts uses the bundled binary, then `sqlc` on `PATH` (for installs with optional dependencies turned off, or a platform without a package).
 
 Writes one file per query file (`users.sql` → `users.ts`), `enums.ts` when the schema has enums, and `runtime.ts` for the engine (copied as is, so the output has no dependency on this package). Generated files from query files that no longer exist are removed; other files in the directory are left alone.
 
@@ -98,7 +109,7 @@ Integers outside the safe range throw in node:sqlite and better-sqlite3 by defau
 
 ## Development
 
-Development uses Node 26; Node and pnpm versions are pinned in `mise.toml` (`mise install`). The published CLI supports Node 22+, and CI runs the tests on both.
+Development uses Node 26; Node and pnpm versions are pinned in `mise.toml` (`mise install`). The published CLI supports Node 22+, and CI runs the tests on Node 22, 24 and 26.
 
 ```sh
 pnpm install
@@ -106,9 +117,18 @@ pnpm test
 pnpm typecheck
 pnpm lint       # biome check
 pnpm build      # compiles src/ to dist/, which is what npm publishes
-pnpm fixture    # after changing the generator: regenerates test/fixture/* (needs sqlc)
+pnpm sqlc:fetch # downloads this platform's sqlc (the version in tools/sqlc/go.mod) into .sqlc/bin
+pnpm fixture    # after changing the generator: regenerates test/fixture/* with that sqlc
 ```
 
 `test/fixture/{postgres,sqlite}/gen` are the committed outputs for the fixture schemas; the tests compare against them, `pnpm typecheck` compiles them, and the SQLite output is run against an in-memory `node:sqlite` database.
 
 Engine-specific code lives in `src/dialects/<engine>/`: the type map, the runtime copied into the output, and (for SQLite) the placeholder rewriting.
+
+### Bundled sqlc and releases
+
+The platform packages are not in the repository: `pnpm pack:all` builds them in a temporary directory, from the sqlc binaries and LICENSE of the GitHub release pinned in `tools/sqlc/go.mod`, and writes their tarballs plus sqlc-ts's to `.pack/`. Their `package.json` is generated with sqlc-ts's version, and sqlc-ts's published `package.json` gets them as exact-version `optionalDependencies`; the repository's has none, so `pnpm install` never asks npm for versions that are not out yet.
+
+To release, bump `version` in `package.json` and run `pnpm release`. It runs lint, typecheck and tests, packs everything, and publishes the six platform packages before sqlc-ts. A plain `npm publish` / `pnpm publish` is refused, since it would ship sqlc-ts without the platform packages.
+
+`tools/sqlc/go.mod` is the only place the sqlc version lives. Dependabot opens a PR when sqlc releases; CI then fetches that version, regenerates the fixtures with it, and runs the typecheck and tests on the result. The committed fixtures name the sqlc version in their header, so they are updated the next time someone runs `pnpm fixture`. To bump by hand: `cd tools/sqlc && go get github.com/sqlc-dev/sqlc@vX.Y.Z && go mod tidy`.

@@ -34,9 +34,12 @@
     "test:coverage": "vitest run --coverage",
     "lint": "biome check",
     "lint:fix": "biome check --write",
-    "fixture": "for d in postgres sqlite; do (cd test/fixture/$d && sqlc generate && node ../../../src/cli.ts codegen_request.json gen) || exit 1; done",
+    "fixture": "export SQLC_PATH=\"${SQLC_PATH:-$PWD/.sqlc/bin/sqlc}\"; for d in postgres sqlite; do (cd test/fixture/$d && node ../../../src/cli.ts generate codegen_request.json gen) || exit 1; done",
     "prepare": "husky",
-    "prepublishOnly": "pnpm lint && pnpm typecheck && pnpm test && pnpm build"
+    "prepublishOnly": "echo 'Publish with pnpm release: it adds the sqlc platform packages.' && exit 1",
+    "sqlc:fetch": "node scripts/sqlc-packages.ts fetch",
+    "release": "pnpm lint && pnpm typecheck && pnpm test && pnpm pack:all && node scripts/sqlc-packages.ts publish .pack",
+    "pack:all": "pnpm build && node scripts/sqlc-packages.ts pack .pack"
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.2",

@@ -13,5 +13,5 @@
     "verbatimModuleSyntax": true,
     "resolveJsonModule": true
   },
-  "include": ["src", "test", "*.mts"]
+  "include": ["src", "test", "scripts", "*.mts"]
 }
