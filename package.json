@@ -1,0 +1,29 @@
+{
+  "name": "sqlc-ts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Typed TypeScript query functions from sqlc's JSON analysis",
+  "repository": "github:wakita181009/sqlc-ts",
+  "type": "module",
+  "packageManager": "pnpm@12.15.0",
+  "engines": {
+    "node": ">=26"
+  },
+  "bin": {
+    "sqlc-ts": "./src/cli.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "biome check",
+    "lint:fix": "biome check --write",
+    "fixture": "cd test/fixture && sqlc generate && node ../../src/cli.ts codegen_request.json gen"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.2",
+    "@types/node": "26.6.5",
+    "typescript": "7.0.2",
+    "vitest": "5.0.5"
+  }
+}
