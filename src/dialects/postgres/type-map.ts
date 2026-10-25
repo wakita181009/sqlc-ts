@@ -1,4 +1,5 @@
-import type { Column } from "./request.ts";
+import type { Column } from "../../request.ts";
+import type { EnumTypes, ResolvedType } from "../dialect.ts";
 
 /**
  * TypeScript types for Postgres types, matching what postgres.js returns with its default
@@ -73,11 +74,6 @@ const UNRESOLVED = new Set([
   "record",
   "void",
 ]);
-
-/** Enum type name (as sqlc writes it in column types) to its TS union. */
-export type EnumTypes = ReadonlyMap<string, string>;
-
-export type ResolvedType = { ts: string } | { error: string };
 
 export function normalizeTypeName(column: Column): string {
   return column.type.name.toLowerCase().replace(/^pg_catalog\./, "");

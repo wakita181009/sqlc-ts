@@ -52,6 +52,10 @@ export type Schema = {
 
 export type GenerateRequest = {
   sqlc_version: string;
+  settings: {
+    /** `postgresql`, `sqlite` or `mysql`. */
+    engine: string;
+  };
   catalog: {
     default_schema: string;
     schemas: Schema[];

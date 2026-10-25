@@ -4,7 +4,9 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GENERATED_MARKER } from "../src/generate.ts";
 import { main } from "../src/main.ts";
-import fixture from "./fixture/codegen_request.json" with { type: "json" };
+import fixture from "./fixture/postgres/codegen_request.json" with {
+  type: "json",
+};
 
 let dir: string;
 let requestPath: string;
@@ -39,7 +41,7 @@ describe("main", () => {
       "views.ts",
     ]);
     const golden = await readFile(
-      new URL("./fixture/gen/runtime.ts", import.meta.url),
+      new URL("./fixture/postgres/gen/runtime.ts", import.meta.url),
       "utf8",
     );
     expect(await readFile(join(outDir, "runtime.ts"), "utf8")).toBe(golden);

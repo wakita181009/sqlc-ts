@@ -11,7 +11,7 @@
       "**",
       "!**/node_modules",
       "!**/codegen_request.json",
-      "!test/fixture/gen",
+      "!test/fixture/*/gen",
       "!**/*.md",
       "!pnpm-lock.yaml"
     ]

@@ -1,11 +1,6 @@
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import {
-  GENERATED_MARKER,
-  GenerateError,
-  generate,
-  header,
-} from "./generate.ts";
+import { GENERATED_MARKER, GenerateError, generate } from "./generate.ts";
 import type { GenerateRequest } from "./request.ts";
 
 const USAGE = "Usage: sqlc-ts <codegen_request.json> <out-dir>";
@@ -29,15 +24,6 @@ export async function main(args: readonly string[]): Promise<number> {
     for (const problem of err.problems) console.error(`  ${problem}`);
     return 1;
   }
-
-  const runtime = await readFile(
-    new URL("./runtime.ts", import.meta.url),
-    "utf8",
-  );
-  files.push({
-    path: "runtime.ts",
-    contents: `${header("sqlc-ts", request.sqlc_version)}\n${runtime}`,
-  });
 
   await mkdir(outDir, { recursive: true });
   const written = new Set(files.map((file) => file.path));
