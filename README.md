@@ -1,6 +1,6 @@
 # sqlc-ts
 
-[![CI](https://github.com/wakita181009/sqlc-ts/actions/workflows/ci.yml/badge.svg)](https://github.com/wakita181009/sqlc-ts/actions/workflows/ci.yml) [![codecov](https://codecov.io/gh/wakita181009/sqlc-ts/graph/badge.svg)](https://codecov.io/gh/wakita181009/sqlc-ts)
+[![npm](https://img.shields.io/npm/v/sqlc-ts)](https://www.npmjs.com/package/sqlc-ts) [![CI](https://github.com/wakita181009/sqlc-ts/actions/workflows/ci.yml/badge.svg)](https://github.com/wakita181009/sqlc-ts/actions/workflows/ci.yml) [![codecov](https://codecov.io/gh/wakita181009/sqlc-ts/graph/badge.svg)](https://codecov.io/gh/wakita181009/sqlc-ts)
 
 Unofficial, not affiliated with sqlc (and unrelated to the `sqlc-typescript` npm package or sqlc's own `sqlc-gen-typescript` plugin).
 
