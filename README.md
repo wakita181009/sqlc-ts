@@ -6,6 +6,10 @@ Turns sqlc's analysis of raw SQL into typed TypeScript functions. sqlc does the 
 
 ## Usage
 
+```sh
+npm install -D sqlc-ts   # needs Node 26+
+```
+
 ```yaml
 # sqlc.yaml
 version: "2"
@@ -81,6 +85,7 @@ pnpm install
 pnpm test
 pnpm typecheck
 pnpm lint       # biome check
+pnpm build      # compiles src/ to dist/, which is what npm publishes
 pnpm fixture    # after changing the generator: regenerates test/fixture/* (needs sqlc)
 ```
 
