@@ -25,5 +25,6 @@ export async function getMisc(db: Executor, args: GetMiscArgs): Promise<GetMiscR
     ratio: row.ratio as number | null,
     big: row.big as number | null,
   });
-  return rows.length > 0 ? toRow(rows[0]) : null;
+  const first = rows.at(0);
+  return first ? toRow(first) : null;
 }

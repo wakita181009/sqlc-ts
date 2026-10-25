@@ -259,7 +259,8 @@ function renderQuery(
           prelude +
           `  const { rows } = await db(${call});\n` +
           `  const toRow = ${toRow};\n` +
-          `  return rows.length > 0 ? toRow(rows[0]) : null;\n` +
+          `  const first = rows.at(0);\n` +
+          `  return first ? toRow(first) : null;\n` +
           `}\n`,
       );
       break;

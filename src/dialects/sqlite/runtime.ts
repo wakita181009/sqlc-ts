@@ -46,6 +46,11 @@ export function expandSlices(
   let index = 0;
   const text = query.replace(/\/\*SLICE:\w+\*\/\?/g, () => {
     const slice = slices[index++];
+    if (!slice) {
+      throw new Error(
+        `expandSlices: ${slices.length} slice(s) given for a query with more markers`,
+      );
+    }
     if (slice.length === 0) return "NULL";
     const first = next;
     next += slice.length;

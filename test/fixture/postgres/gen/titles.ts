@@ -39,7 +39,8 @@ export async function getTitle(db: Executor, args: GetTitleArgs): Promise<GetTit
     publishedOn: row.published_on as Date | null,
     createdAt: row.created_at as Date,
   });
-  return rows.length > 0 ? toRow(rows[0]) : null;
+  const first = rows.at(0);
+  return first ? toRow(first) : null;
 }
 
 const listTitlesByStatusSql = `SELECT id, name, tags FROM titles
@@ -91,7 +92,8 @@ export async function createTitle(db: Executor, args: CreateTitleArgs): Promise<
     id: row.id as string,
     createdAt: row.created_at as Date,
   });
-  return rows.length > 0 ? toRow(rows[0]) : null;
+  const first = rows.at(0);
+  return first ? toRow(first) : null;
 }
 
 const renameTitleSql = `UPDATE titles SET name = $1 WHERE id = $2`;
@@ -130,5 +132,6 @@ export async function quotedLiteral(db: Executor): Promise<QuotedLiteralRow | nu
   const toRow = (row: Row): QuotedLiteralRow => ({
     literal: row.literal as string,
   });
-  return rows.length > 0 ? toRow(rows[0]) : null;
+  const first = rows.at(0);
+  return first ? toRow(first) : null;
 }

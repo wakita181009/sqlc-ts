@@ -138,6 +138,12 @@ describe("expandSlices", () => {
     ).toEqual(["a = ?1 AND b IN (?2, ?3) AND c IN (?4)", ["x", 1, 2, "y"]]);
   });
 
+  it("throws when the query has more slice markers than slices given", () => {
+    expect(() => expandSlices("x IN (/*SLICE:x*/?)", [], [])).toThrow(
+      "0 slice(s) given",
+    );
+  });
+
   it("turns an empty slice into NULL", () => {
     expect(expandSlices("x IN (/*SLICE:x*/?)", [], [[]])).toEqual([
       "x IN (NULL)",
