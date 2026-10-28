@@ -65590,6 +65590,381 @@
   },
   "queries": [
     {
+      "text": "WITH RECURSIVE countdown (n) AS (\n  SELECT $1::int\n  UNION ALL\n  SELECT n - 1 FROM countdown WHERE n \u003e 1\n)\nSELECT n FROM countdown",
+      "name": "Countdown",
+      "cmd": ":many",
+      "columns": [
+        {
+          "name": "n",
+          "not_null": true,
+          "is_array": false,
+          "comment": "",
+          "length": -1,
+          "is_named_param": false,
+          "is_func_call": false,
+          "scope": "",
+          "table": {
+            "catalog": "",
+            "schema": "",
+            "name": "countdown"
+          },
+          "table_alias": "",
+          "type": {
+            "catalog": "",
+            "schema": "pg_catalog",
+            "name": "int4"
+          },
+          "is_sqlc_slice": false,
+          "embed_table": null,
+          "original_name": "n",
+          "unsigned": false,
+          "array_dims": 0
+        }
+      ],
+      "params": [
+        {
+          "number": 1,
+          "column": {
+            "name": "start",
+            "not_null": true,
+            "is_array": false,
+            "comment": "",
+            "length": -1,
+            "is_named_param": true,
+            "is_func_call": false,
+            "scope": "",
+            "table": null,
+            "table_alias": "",
+            "type": {
+              "catalog": "",
+              "schema": "pg_catalog",
+              "name": "int4"
+            },
+            "is_sqlc_slice": false,
+            "embed_table": null,
+            "original_name": "",
+            "unsigned": false,
+            "array_dims": 0
+          }
+        }
+      ],
+      "comments": [],
+      "filename": "cte.sql",
+      "insert_into_table": null
+    },
+    {
+      "text": "WITH view_counts AS (\n  SELECT title_id, count(*) AS view_count FROM views GROUP BY title_id\n), ranked AS (\n  SELECT title_id, view_count, rank() OVER (ORDER BY view_count DESC) AS place FROM view_counts\n)\nSELECT t.id, t.name, ranked.view_count, ranked.place\nFROM titles t JOIN ranked ON ranked.title_id = t.id\nWHERE ranked.view_count \u003e= $1::bigint AND t.status = $2\nORDER BY ranked.place, t.id",
+      "name": "PopularTitles",
+      "cmd": ":many",
+      "columns": [
+        {
+          "name": "id",
+          "not_null": true,
+          "is_array": false,
+          "comment": "",
+          "length": -1,
+          "is_named_param": false,
+          "is_func_call": false,
+          "scope": "",
+          "table": {
+            "catalog": "",
+            "schema": "",
+            "name": "titles"
+          },
+          "table_alias": "",
+          "type": {
+            "catalog": "",
+            "schema": "",
+            "name": "bigserial"
+          },
+          "is_sqlc_slice": false,
+          "embed_table": null,
+          "original_name": "id",
+          "unsigned": false,
+          "array_dims": 0
+        },
+        {
+          "name": "name",
+          "not_null": true,
+          "is_array": false,
+          "comment": "",
+          "length": -1,
+          "is_named_param": false,
+          "is_func_call": false,
+          "scope": "",
+          "table": {
+            "catalog": "",
+            "schema": "",
+            "name": "titles"
+          },
+          "table_alias": "",
+          "type": {
+            "catalog": "",
+            "schema": "",
+            "name": "text"
+          },
+          "is_sqlc_slice": false,
+          "embed_table": null,
+          "original_name": "name",
+          "unsigned": false,
+          "array_dims": 0
+        },
+        {
+          "name": "view_count",
+          "not_null": true,
+          "is_array": false,
+          "comment": "",
+          "length": -1,
+          "is_named_param": false,
+          "is_func_call": false,
+          "scope": "",
+          "table": {
+            "catalog": "",
+            "schema": "",
+            "name": "ranked"
+          },
+          "table_alias": "",
+          "type": {
+            "catalog": "",
+            "schema": "",
+            "name": "bigint"
+          },
+          "is_sqlc_slice": false,
+          "embed_table": null,
+          "original_name": "view_count",
+          "unsigned": false,
+          "array_dims": 0
+        },
+        {
+          "name": "place",
+          "not_null": true,
+          "is_array": false,
+          "comment": "",
+          "length": -1,
+          "is_named_param": false,
+          "is_func_call": false,
+          "scope": "",
+          "table": {
+            "catalog": "",
+            "schema": "",
+            "name": "ranked"
+          },
+          "table_alias": "",
+          "type": {
+            "catalog": "",
+            "schema": "",
+            "name": "bigint"
+          },
+          "is_sqlc_slice": false,
+          "embed_table": null,
+          "original_name": "place",
+          "unsigned": false,
+          "array_dims": 0
+        }
+      ],
+      "params": [
+        {
+          "number": 1,
+          "column": {
+            "name": "min_views",
+            "not_null": true,
+            "is_array": false,
+            "comment": "",
+            "length": -1,
+            "is_named_param": true,
+            "is_func_call": false,
+            "scope": "",
+            "table": null,
+            "table_alias": "",
+            "type": {
+              "catalog": "",
+              "schema": "pg_catalog",
+              "name": "int8"
+            },
+            "is_sqlc_slice": false,
+            "embed_table": null,
+            "original_name": "",
+            "unsigned": false,
+            "array_dims": 0
+          }
+        },
+        {
+          "number": 2,
+          "column": {
+            "name": "status",
+            "not_null": true,
+            "is_array": false,
+            "comment": "",
+            "length": -1,
+            "is_named_param": true,
+            "is_func_call": false,
+            "scope": "",
+            "table": {
+              "catalog": "",
+              "schema": "",
+              "name": "titles"
+            },
+            "table_alias": "",
+            "type": {
+              "catalog": "",
+              "schema": "",
+              "name": "episode_status"
+            },
+            "is_sqlc_slice": false,
+            "embed_table": null,
+            "original_name": "status",
+            "unsigned": false,
+            "array_dims": 0
+          }
+        }
+      ],
+      "comments": [
+        " Two CTEs, the second reading the first."
+      ],
+      "filename": "cte.sql",
+      "insert_into_table": null
+    },
+    {
+      "text": "WITH deleted AS (\n  DELETE FROM views WHERE title_id = $1 RETURNING title_id\n)\nSELECT count(*) AS deleted FROM deleted",
+      "name": "DeleteViewsReturningCount",
+      "cmd": ":one",
+      "columns": [
+        {
+          "name": "deleted",
+          "not_null": true,
+          "is_array": false,
+          "comment": "",
+          "length": -1,
+          "is_named_param": false,
+          "is_func_call": true,
+          "scope": "",
+          "table": null,
+          "table_alias": "",
+          "type": {
+            "catalog": "",
+            "schema": "",
+            "name": "bigint"
+          },
+          "is_sqlc_slice": false,
+          "embed_table": null,
+          "original_name": "",
+          "unsigned": false,
+          "array_dims": 0
+        }
+      ],
+      "params": [
+        {
+          "number": 1,
+          "column": {
+            "name": "title_id",
+            "not_null": true,
+            "is_array": false,
+            "comment": "",
+            "length": -1,
+            "is_named_param": true,
+            "is_func_call": false,
+            "scope": "",
+            "table": {
+              "catalog": "",
+              "schema": "",
+              "name": "views"
+            },
+            "table_alias": "",
+            "type": {
+              "catalog": "",
+              "schema": "",
+              "name": "pg_catalog.int8"
+            },
+            "is_sqlc_slice": false,
+            "embed_table": null,
+            "original_name": "title_id",
+            "unsigned": false,
+            "array_dims": 0
+          }
+        }
+      ],
+      "comments": [
+        " A data-modifying CTE."
+      ],
+      "filename": "cte.sql",
+      "insert_into_table": null
+    },
+    {
+      "text": "WITH source AS (\n  SELECT v.viewed_at FROM views v WHERE v.title_id = $2\n)\nINSERT INTO views (title_id, viewed_at)\nSELECT $1, viewed_at FROM source",
+      "name": "CopyViews",
+      "cmd": ":execrows",
+      "columns": [],
+      "params": [
+        {
+          "number": 1,
+          "column": {
+            "name": "to_id",
+            "not_null": true,
+            "is_array": false,
+            "comment": "",
+            "length": -1,
+            "is_named_param": true,
+            "is_func_call": false,
+            "scope": "",
+            "table": {
+              "catalog": "",
+              "schema": "public",
+              "name": "views"
+            },
+            "table_alias": "",
+            "type": {
+              "catalog": "",
+              "schema": "",
+              "name": "pg_catalog.int8"
+            },
+            "is_sqlc_slice": false,
+            "embed_table": null,
+            "original_name": "title_id",
+            "unsigned": false,
+            "array_dims": 0
+          }
+        },
+        {
+          "number": 2,
+          "column": {
+            "name": "from_id",
+            "not_null": true,
+            "is_array": false,
+            "comment": "",
+            "length": -1,
+            "is_named_param": true,
+            "is_func_call": false,
+            "scope": "",
+            "table": {
+              "catalog": "",
+              "schema": "",
+              "name": "views"
+            },
+            "table_alias": "",
+            "type": {
+              "catalog": "",
+              "schema": "",
+              "name": "pg_catalog.int8"
+            },
+            "is_sqlc_slice": false,
+            "embed_table": null,
+            "original_name": "title_id",
+            "unsigned": false,
+            "array_dims": 0
+          }
+        }
+      ],
+      "comments": [
+        " sqlc numbers the main statement's parameter ($1) before the one in the CTE ($2)."
+      ],
+      "filename": "cte.sql",
+      "insert_into_table": {
+        "catalog": "",
+        "schema": "",
+        "name": "views"
+      }
+    },
+    {
       "text": "SELECT id, small, medium, precise, flag, at_local, at_time, span, doc, fixed, label, prices, grid, address_line1 FROM misc WHERE id = $1",
       "name": "GetMisc",
       "cmd": ":one",
