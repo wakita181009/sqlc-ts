@@ -147,6 +147,75 @@ describe("main with sqlc", () => {
     await expect(readdir(outDir)).rejects.toThrow();
   });
 
+  it("check runs sqlc diff and passes when the output is up to date", async () => {
+    await main([requestPath, outDir]);
+    await writeFile(join(outDir, "mine.ts"), "export const mine = 1;");
+    error.mockClear();
+
+    expect(
+      await main(["check", "-f", "db/sqlc.yaml", requestPath, outDir]),
+    ).toBe(0);
+    expect(await sqlcArgs()).toBe("diff -f db/sqlc.yaml\n");
+    expect(error).not.toHaveBeenCalled();
+    expect(log).toHaveBeenCalledWith(
+      expect.stringContaining(`5 file(s) in ${outDir} are up to date`),
+    );
+  });
+
+  it("check lists missing, changed and stale files without writing", async () => {
+    await main([requestPath, outDir]);
+    await rm(join(outDir, "enums.ts"));
+    await writeFile(join(outDir, "titles.ts"), `${GENERATED_MARKER}\nedited`);
+    await writeFile(join(outDir, "old.ts"), `${GENERATED_MARKER}\nold`);
+
+    expect(await main(["check", requestPath, outDir])).toBe(1);
+    expect(error).toHaveBeenCalledWith(
+      expect.stringContaining("3 file(s) differ from the generated code"),
+    );
+    expect(error).toHaveBeenCalledWith(
+      `  missing: ${join(outDir, "enums.ts")}`,
+    );
+    expect(error).toHaveBeenCalledWith(
+      `  out of date: ${join(outDir, "titles.ts")}`,
+    );
+    expect(error).toHaveBeenCalledWith(
+      `  no longer generated: ${join(outDir, "old.ts")}`,
+    );
+    expect((await readdir(outDir)).sort()).toEqual([
+      "misc.ts",
+      "old.ts",
+      "runtime.ts",
+      "titles.ts",
+      "views.ts",
+    ]);
+  });
+
+  it("check reports every file missing when the output directory does not exist", async () => {
+    expect(await main(["check", requestPath, outDir])).toBe(1);
+    expect(error).toHaveBeenCalledWith(
+      expect.stringContaining("5 file(s) differ from the generated code"),
+    );
+    await expect(readdir(outDir)).rejects.toThrow();
+  });
+
+  it("check stops with sqlc's exit code when sqlc diff fails", async () => {
+    vi.stubEnv("FAKE_SQLC_EXIT", "1");
+    expect(await main(["check", requestPath, outDir])).toBe(1);
+    expect(await sqlcArgs()).toBe("diff\n");
+    expect(error).toHaveBeenCalledWith(
+      expect.stringContaining("sqlc's output is out of date"),
+    );
+  });
+
+  it("check reports generation problems", async () => {
+    const broken = structuredClone(fixture);
+    broken.queries[0].cmd = ":batchexec";
+    await writeFile(requestPath, JSON.stringify(broken));
+
+    expect(await main(["check", requestPath, outDir])).toBe(1);
+    expect(error).toHaveBeenCalledWith("sqlc-ts: 1 problem(s)");
+  });
+
   it("sqlc passes every argument through, flags included", async () => {
     vi.stubEnv("FAKE_SQLC_EXIT", "4");
     expect(await main(["sqlc", "vet", "--help"])).toBe(4);
@@ -156,7 +225,7 @@ describe("main with sqlc", () => {
   it("rejects --file without generate", async () => {
     expect(await main(["-f", "sqlc.yaml", requestPath, outDir])).toBe(2);
     expect(error).toHaveBeenCalledWith(
-      expect.stringContaining("--file only applies to generate"),
+      expect.stringContaining("--file only applies to generate and check"),
     );
   });
 

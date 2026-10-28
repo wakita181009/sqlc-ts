@@ -1,22 +1,31 @@
+import { existsSync } from "node:fs";
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
-import { GENERATED_MARKER, GenerateError, generate } from "./generate.ts";
+import {
+  GENERATED_MARKER,
+  type GeneratedFile,
+  GenerateError,
+  generate,
+} from "./generate.ts";
 import type { GenerateRequest } from "./request.ts";
 import { runSqlc } from "./sqlc.ts";
 
 const USAGE = `Usage: sqlc-ts generate <codegen_request.json> <out-dir> [-f sqlc.yaml]
+       sqlc-ts check <codegen_request.json> <out-dir> [-f sqlc.yaml]
        sqlc-ts <codegen_request.json> <out-dir>
        sqlc-ts sqlc [sqlc args...]
 
 Commands:
   generate   Run \`sqlc generate\`, then write TypeScript from its JSON output
+  check      Check that sqlc's JSON and the TypeScript in <out-dir> are up to date,
+             without writing anything (\`sqlc diff\`, then compare the files)
   (none)     Write TypeScript from JSON that sqlc already generated
   sqlc       Run the bundled sqlc with the given arguments
 
 Options:
-  -f, --file  sqlc config file passed to \`sqlc generate\` (generate only)
+  -f, --file  sqlc config file passed to sqlc (generate and check only)
   --help      Show this message
   --version   Print the version`;
 
@@ -74,30 +83,42 @@ export async function main(args: readonly string[]): Promise<number> {
     console.log(packageVersion());
     return 0;
   }
-  const runGenerate = cli.positionals[0] === "generate";
-  const [requestPath, outDir, ...extra] = runGenerate
+  const command = cli.positionals[0];
+  const runSqlcFirst = command === "generate" || command === "check";
+  const [requestPath, outDir, ...extra] = runSqlcFirst
     ? cli.positionals.slice(1)
     : cli.positionals;
   if (!requestPath || !outDir || extra.length > 0) {
     console.error(USAGE);
     return 2;
   }
-  if (cli.file !== undefined && !runGenerate) {
-    console.error("sqlc-ts: --file only applies to generate");
+  if (cli.file !== undefined && !runSqlcFirst) {
+    console.error("sqlc-ts: --file only applies to generate and check");
     console.error(USAGE);
     return 2;
   }
-  if (runGenerate) {
-    const code = await runSqlc(
-      cli.file === undefined ? ["generate"] : ["generate", "-f", cli.file],
-    );
-    if (code !== 0) return code;
+  if (runSqlcFirst) {
+    const fileArgs = cli.file === undefined ? [] : ["-f", cli.file];
+    // `sqlc diff` checks the queries like `sqlc generate` does, but compares its output
+    // with the files on disk instead of writing them.
+    const code = await runSqlc([
+      command === "check" ? "diff" : "generate",
+      ...fileArgs,
+    ]);
+    if (code !== 0) {
+      if (command === "check") {
+        console.error(
+          `sqlc-ts: sqlc's output is out of date or the queries have errors (see above); run \`sqlc-ts generate\``,
+        );
+      }
+      return code;
+    }
   }
   const request = JSON.parse(
     await readFile(requestPath, "utf8"),
   ) as GenerateRequest;
 
-  let files: ReturnType<typeof generate>;
+  let files: GeneratedFile[];
   try {
     files = generate(request);
   } catch (err) {
@@ -107,20 +128,70 @@ export async function main(args: readonly string[]): Promise<number> {
     return 1;
   }
 
+  if (command === "check") return checkFiles(files, outDir);
+
   await mkdir(outDir, { recursive: true });
   const written = new Set(files.map((file) => file.path));
   // Drop files generated earlier for query files that no longer exist; leave anything
   // hand-written in the directory alone.
-  for (const entry of await readdir(outDir)) {
-    if (written.has(entry) || !entry.endsWith(".ts")) continue;
-    const path = join(outDir, entry);
-    if ((await readFile(path, "utf8")).startsWith(GENERATED_MARKER)) {
-      await rm(path);
-    }
-  }
+  for (const path of await staleFiles(outDir, written)) await rm(path);
   for (const file of files) {
     await writeFile(join(outDir, file.path), file.contents);
   }
   console.log(`sqlc-ts: wrote ${files.length} file(s) to ${outDir}`);
+  return 0;
+}
+
+/** Files in outDir that sqlc-ts generated earlier and that are not in `current`. */
+async function staleFiles(
+  outDir: string,
+  current: ReadonlySet<string>,
+): Promise<string[]> {
+  const stale = [];
+  for (const entry of await readdir(outDir)) {
+    if (current.has(entry) || !entry.endsWith(".ts")) continue;
+    const path = join(outDir, entry);
+    if ((await readFile(path, "utf8")).startsWith(GENERATED_MARKER)) {
+      stale.push(path);
+    }
+  }
+  return stale;
+}
+
+async function readIfExists(path: string): Promise<string | undefined> {
+  try {
+    return await readFile(path, "utf8");
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    throw err;
+  }
+}
+
+/** Compares what `generate` would write with outDir, reporting each difference. */
+async function checkFiles(
+  files: readonly GeneratedFile[],
+  outDir: string,
+): Promise<number> {
+  const problems = [];
+  for (const file of files) {
+    const path = join(outDir, file.path);
+    const existing = await readIfExists(path);
+    if (existing === undefined) problems.push(`missing: ${path}`);
+    else if (existing !== file.contents) problems.push(`out of date: ${path}`);
+  }
+  const current = new Set(files.map((file) => file.path));
+  if (existsSync(outDir)) {
+    for (const path of await staleFiles(outDir, current)) {
+      problems.push(`no longer generated: ${path}`);
+    }
+  }
+  if (problems.length > 0) {
+    console.error(
+      `sqlc-ts: ${problems.length} file(s) differ from the generated code; run \`sqlc-ts generate\``,
+    );
+    for (const problem of problems) console.error(`  ${problem}`);
+    return 1;
+  }
+  console.log(`sqlc-ts: ${files.length} file(s) in ${outDir} are up to date`);
   return 0;
 }
