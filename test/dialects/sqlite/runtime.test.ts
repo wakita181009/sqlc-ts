@@ -6,6 +6,11 @@ import {
   fromSqlite,
 } from "../../../src/dialects/sqlite/runtime.ts";
 import {
+  countdown,
+  pickTitles,
+  popularTitles,
+} from "../../fixture/sqlite/gen/cte.ts";
+import {
   countMisc,
   createMisc,
   getMisc,
@@ -237,6 +242,41 @@ describe("generated sqlite code: more statement shapes", () => {
       ratio: 0.5,
       big: null,
     });
+  });
+});
+
+describe("generated sqlite code: WITH clauses", () => {
+  it("runs WITH RECURSIVE", async () => {
+    expect(await countdown(db, { start: 3 })).toEqual([
+      { n: 3 },
+      { n: 2 },
+      { n: 1 },
+    ]);
+  });
+
+  it("chains two CTEs and binds the main query's parameters", async () => {
+    const [a, b, c] = await seed();
+    for (const id of [a, b, b, c, c, c]) await recordView(db, { titleId: id });
+
+    const popular = await popularTitles(db, {
+      minViews: 2,
+      status: "published",
+    });
+
+    expect(popular).toEqual([
+      { id: c, name: "c", viewCount: 3, place: 1 },
+      { id: b, name: "b", viewCount: 2, place: 2 },
+    ]);
+  });
+
+  it("expands a slice inside a CTE after the scalar that follows it", async () => {
+    const [a, b, c] = await seed();
+
+    const picked = await pickTitles(db, { ids: [a, b, c], exclude: "b" });
+    const none = await pickTitles(db, { ids: [], exclude: "b" });
+
+    expect(picked.map((row) => row.name)).toEqual(["a", "c"]);
+    expect(none).toEqual([]);
   });
 });
 

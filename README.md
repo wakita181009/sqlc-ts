@@ -126,7 +126,7 @@ pnpm sqlc:fetch # downloads this platform's sqlc (the version in tools/sqlc/go.m
 pnpm fixture    # after changing the generator: regenerates test/fixture/* with that sqlc
 ```
 
-`test/fixture/{postgres,sqlite}/gen` are the committed outputs for the fixture schemas; the tests compare against them, `pnpm typecheck` compiles them, and the SQLite output is run against an in-memory `node:sqlite` database.
+`test/fixture/{postgres,sqlite}/gen` are the committed outputs for the fixture schemas; the tests compare against them, `pnpm typecheck` compiles them, and the SQLite output is run against an in-memory `node:sqlite` database. The Postgres output runs against a real server through postgres.js when `DATABASE_URL` is set (`DATABASE_URL=postgres://postgres@localhost:5432/postgres pnpm test`; each run works in its own schema); without it those tests are skipped. CI's `check` job starts a Postgres 16 service and sets it.
 
 Engine-specific code lives in `src/dialects/<engine>/`: the type map, the runtime copied into the output, and (for SQLite) the placeholder rewriting.
 

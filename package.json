@@ -49,6 +49,7 @@
     "@types/node": "26.6.5",
     "@vitest/coverage-v8": "5.0.5",
     "husky": "9.1.7",
+    "postgres": "3.4.9",
     "typescript": "7.0.2",
     "vitest": "5.0.5"
   }

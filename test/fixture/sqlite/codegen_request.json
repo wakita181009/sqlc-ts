@@ -506,6 +506,365 @@
   },
   "queries": [
     {
+      "text": "WITH RECURSIVE countdown AS (\n  SELECT CAST(?1 AS INTEGER) AS n\n  UNION ALL\n  SELECT n - 1 FROM countdown WHERE n \u003e 1\n)\nSELECT n FROM countdown",
+      "name": "Countdown",
+      "cmd": ":many",
+      "columns": [
+        {
+          "name": "n",
+          "not_null": true,
+          "is_array": false,
+          "comment": "",
+          "length": -1,
+          "is_named_param": false,
+          "is_func_call": false,
+          "scope": "",
+          "table": {
+            "catalog": "",
+            "schema": "",
+            "name": "countdown"
+          },
+          "table_alias": "",
+          "type": {
+            "catalog": "",
+            "schema": "",
+            "name": "integer"
+          },
+          "is_sqlc_slice": false,
+          "embed_table": null,
+          "original_name": "n",
+          "unsigned": false,
+          "array_dims": 0
+        }
+      ],
+      "params": [
+        {
+          "number": 1,
+          "column": {
+            "name": "start",
+            "not_null": true,
+            "is_array": false,
+            "comment": "",
+            "length": -1,
+            "is_named_param": true,
+            "is_func_call": false,
+            "scope": "",
+            "table": null,
+            "table_alias": "",
+            "type": {
+              "catalog": "",
+              "schema": "",
+              "name": "integer"
+            },
+            "is_sqlc_slice": false,
+            "embed_table": null,
+            "original_name": "",
+            "unsigned": false,
+            "array_dims": 0
+          }
+        }
+      ],
+      "comments": [],
+      "filename": "cte.sql",
+      "insert_into_table": null
+    },
+    {
+      "text": "WITH view_counts AS (\n  SELECT title_id, count(*) AS view_count FROM views GROUP BY title_id\n), ranked AS (\n  SELECT title_id, view_count, CAST(rank() OVER (ORDER BY view_count DESC) AS INTEGER) AS place FROM view_counts\n)\nSELECT t.id, t.name, ranked.view_count, ranked.place\nFROM titles t JOIN ranked ON ranked.title_id = t.id\nWHERE ranked.view_count \u003e= CAST(?1 AS INTEGER) AND t.status = ?2\nORDER BY ranked.place, t.id",
+      "name": "PopularTitles",
+      "cmd": ":many",
+      "columns": [
+        {
+          "name": "id",
+          "not_null": true,
+          "is_array": false,
+          "comment": "",
+          "length": -1,
+          "is_named_param": false,
+          "is_func_call": false,
+          "scope": "",
+          "table": {
+            "catalog": "",
+            "schema": "",
+            "name": "titles"
+          },
+          "table_alias": "",
+          "type": {
+            "catalog": "",
+            "schema": "",
+            "name": "INTEGER"
+          },
+          "is_sqlc_slice": false,
+          "embed_table": null,
+          "original_name": "id",
+          "unsigned": false,
+          "array_dims": 0
+        },
+        {
+          "name": "name",
+          "not_null": true,
+          "is_array": false,
+          "comment": "",
+          "length": -1,
+          "is_named_param": false,
+          "is_func_call": false,
+          "scope": "",
+          "table": {
+            "catalog": "",
+            "schema": "",
+            "name": "titles"
+          },
+          "table_alias": "",
+          "type": {
+            "catalog": "",
+            "schema": "",
+            "name": "TEXT"
+          },
+          "is_sqlc_slice": false,
+          "embed_table": null,
+          "original_name": "name",
+          "unsigned": false,
+          "array_dims": 0
+        },
+        {
+          "name": "view_count",
+          "not_null": true,
+          "is_array": false,
+          "comment": "",
+          "length": -1,
+          "is_named_param": false,
+          "is_func_call": false,
+          "scope": "",
+          "table": {
+            "catalog": "",
+            "schema": "",
+            "name": "ranked"
+          },
+          "table_alias": "",
+          "type": {
+            "catalog": "",
+            "schema": "",
+            "name": "integer"
+          },
+          "is_sqlc_slice": false,
+          "embed_table": null,
+          "original_name": "view_count",
+          "unsigned": false,
+          "array_dims": 0
+        },
+        {
+          "name": "place",
+          "not_null": true,
+          "is_array": false,
+          "comment": "",
+          "length": -1,
+          "is_named_param": false,
+          "is_func_call": false,
+          "scope": "",
+          "table": {
+            "catalog": "",
+            "schema": "",
+            "name": "ranked"
+          },
+          "table_alias": "",
+          "type": {
+            "catalog": "",
+            "schema": "",
+            "name": "integer"
+          },
+          "is_sqlc_slice": false,
+          "embed_table": null,
+          "original_name": "place",
+          "unsigned": false,
+          "array_dims": 0
+        }
+      ],
+      "params": [
+        {
+          "number": 1,
+          "column": {
+            "name": "min_views",
+            "not_null": true,
+            "is_array": false,
+            "comment": "",
+            "length": -1,
+            "is_named_param": true,
+            "is_func_call": false,
+            "scope": "",
+            "table": null,
+            "table_alias": "",
+            "type": {
+              "catalog": "",
+              "schema": "",
+              "name": "integer"
+            },
+            "is_sqlc_slice": false,
+            "embed_table": null,
+            "original_name": "",
+            "unsigned": false,
+            "array_dims": 0
+          }
+        },
+        {
+          "number": 2,
+          "column": {
+            "name": "status",
+            "not_null": true,
+            "is_array": false,
+            "comment": "",
+            "length": -1,
+            "is_named_param": true,
+            "is_func_call": false,
+            "scope": "",
+            "table": {
+              "catalog": "",
+              "schema": "",
+              "name": "titles"
+            },
+            "table_alias": "",
+            "type": {
+              "catalog": "",
+              "schema": "",
+              "name": "TEXT"
+            },
+            "is_sqlc_slice": false,
+            "embed_table": null,
+            "original_name": "status",
+            "unsigned": false,
+            "array_dims": 0
+          }
+        }
+      ],
+      "comments": [
+        " Two CTEs, the second reading the first."
+      ],
+      "filename": "cte.sql",
+      "insert_into_table": null
+    },
+    {
+      "text": "WITH picked AS (\n  SELECT id, name FROM titles WHERE id IN (/*SLICE:ids*/?)\n)\nSELECT id, name FROM picked WHERE name \u003c\u003e ?1 ORDER BY id",
+      "name": "PickTitles",
+      "cmd": ":many",
+      "columns": [
+        {
+          "name": "id",
+          "not_null": true,
+          "is_array": false,
+          "comment": "",
+          "length": -1,
+          "is_named_param": false,
+          "is_func_call": false,
+          "scope": "",
+          "table": {
+            "catalog": "",
+            "schema": "",
+            "name": "picked"
+          },
+          "table_alias": "",
+          "type": {
+            "catalog": "",
+            "schema": "",
+            "name": "INTEGER"
+          },
+          "is_sqlc_slice": false,
+          "embed_table": null,
+          "original_name": "id",
+          "unsigned": false,
+          "array_dims": 0
+        },
+        {
+          "name": "name",
+          "not_null": true,
+          "is_array": false,
+          "comment": "",
+          "length": -1,
+          "is_named_param": false,
+          "is_func_call": false,
+          "scope": "",
+          "table": {
+            "catalog": "",
+            "schema": "",
+            "name": "picked"
+          },
+          "table_alias": "",
+          "type": {
+            "catalog": "",
+            "schema": "",
+            "name": "TEXT"
+          },
+          "is_sqlc_slice": false,
+          "embed_table": null,
+          "original_name": "name",
+          "unsigned": false,
+          "array_dims": 0
+        }
+      ],
+      "params": [
+        {
+          "number": 1,
+          "column": {
+            "name": "exclude",
+            "not_null": true,
+            "is_array": false,
+            "comment": "",
+            "length": -1,
+            "is_named_param": true,
+            "is_func_call": false,
+            "scope": "",
+            "table": {
+              "catalog": "",
+              "schema": "",
+              "name": "titles"
+            },
+            "table_alias": "",
+            "type": {
+              "catalog": "",
+              "schema": "",
+              "name": "TEXT"
+            },
+            "is_sqlc_slice": false,
+            "embed_table": null,
+            "original_name": "name",
+            "unsigned": false,
+            "array_dims": 0
+          }
+        },
+        {
+          "number": 2,
+          "column": {
+            "name": "ids",
+            "not_null": true,
+            "is_array": false,
+            "comment": "",
+            "length": -1,
+            "is_named_param": true,
+            "is_func_call": false,
+            "scope": "",
+            "table": {
+              "catalog": "",
+              "schema": "",
+              "name": "titles"
+            },
+            "table_alias": "",
+            "type": {
+              "catalog": "",
+              "schema": "",
+              "name": "INTEGER"
+            },
+            "is_sqlc_slice": true,
+            "embed_table": null,
+            "original_name": "id",
+            "unsigned": false,
+            "array_dims": 0
+          }
+        }
+      ],
+      "comments": [
+        " A slice inside the CTE still expands after the scalar that follows it."
+      ],
+      "filename": "cte.sql",
+      "insert_into_table": null
+    },
+    {
       "text": "SELECT label, count, code, ratio, big FROM misc WHERE label = ? LIMIT 1",
       "name": "GetMisc",
       "cmd": ":one",
