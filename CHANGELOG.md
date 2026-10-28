@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/wakita181009/sqlc-ts/compare/sqlc-ts-v0.1.0...sqlc-ts-v0.2.0) (2026-10-28)
+
+
+### Features
+
+* add a check command that verifies generated code is up to date ([#6](https://github.com/wakita181009/sqlc-ts/issues/6)) ([b0a64ee](https://github.com/wakita181009/sqlc-ts/commit/b0a64eeb4f99302b03659b91f6089bc866e2755b))
+
 ## [0.1.0](https://github.com/wakita181009/sqlc-ts/compare/sqlc-ts-v0.0.3...sqlc-ts-v0.1.0) (2026-10-25)
 
 
