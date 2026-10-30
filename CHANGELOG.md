@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.4.0](https://github.com/wakita181009/sqlc-ts/compare/sqlc-ts-v0.3.0...sqlc-ts-v0.4.0) (2026-10-30)
+
+
+### Features
+
+* add pg, Neon, PGlite and Cloudflare D1 adapters ([#13](https://github.com/wakita181009/sqlc-ts/issues/13)) ([3cc3d9f](https://github.com/wakita181009/sqlc-ts/commit/3cc3d9fe9b13934ef5d90fe2298a37ab730a3a32))
+* support sqlc.embed() with nested row types ([#11](https://github.com/wakita181009/sqlc-ts/issues/11)) ([a828b5c](https://github.com/wakita181009/sqlc-ts/commit/a828b5c4ce948692b127449585cd55ab23422919))
+* write one driver adapter per file under adapters/ ([#14](https://github.com/wakita181009/sqlc-ts/issues/14)) ([879d0ac](https://github.com/wakita181009/sqlc-ts/commit/879d0acdc133946dee6f33259f18c13e178e482c))
+
 ## [0.3.0](https://github.com/wakita181009/sqlc-ts/compare/sqlc-ts-v0.2.0...sqlc-ts-v0.3.0) (2026-10-30)
 
 
