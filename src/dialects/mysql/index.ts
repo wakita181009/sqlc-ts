@@ -7,6 +7,7 @@ export const mysql: Dialect = {
   systemSchemas: new Set(),
   runtime: new URL("./runtime.ts", import.meta.url),
   hasInsertId: true,
+  namedParam: "sqlc.arg(name)",
   resolveType,
   prepareQuery: prepareMysqlQuery,
 };

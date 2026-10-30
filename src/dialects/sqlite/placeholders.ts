@@ -5,6 +5,7 @@ import { type ScanOptions, scanPlaceholders } from "../scan.ts";
 const SQLITE_SCAN: ScanOptions = {
   backslashEscapes: false,
   hashComments: false,
+  dashCommentNeedsSpace: false,
   bracketIdentifiers: true,
 };
 
@@ -66,7 +67,9 @@ export function prepareSqliteQuery(
     ...params
       .filter((column) => !column.is_sqlc_slice)
       .map((column) => ({ name: column.name, slice: false })),
-    ...slices.map((name) => ({ name, slice: true })),
+    ...slices
+      .filter((name) => sliceNames.includes(name))
+      .map((name) => ({ name, slice: true })),
   ];
   return { text: pieces.join(""), params, binds };
 }

@@ -26,6 +26,8 @@ export type Dialect = {
   runtime: URL;
   /** Whether the runtime's Executor reports insertId, which :execlastid needs. */
   hasInsertId: boolean;
+  /** How to name a parameter in this engine's SQL, for error messages: `@name`, `sqlc.arg(name)`. */
+  namedParam: string;
   resolveType(
     column: Column,
     role: "output" | "param",

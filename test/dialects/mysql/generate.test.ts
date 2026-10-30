@@ -34,6 +34,27 @@ describe("mysql generate", () => {
     );
   });
 
+  it("lists a slice marker that matches no parameter as a problem, not a crash", () => {
+    const req = structuredClone(request);
+    const q = req.queries.find((q) => q.name === "PublishTitles");
+    if (!q) throw new Error("no PublishTitles");
+    q.params[0].column.name = "other";
+
+    expect(() => generate(req)).toThrow(GenerateError);
+    expect(() => generate(req)).toThrow("do not line up");
+  });
+
+  it("tells MySQL users to name clashing parameters with sqlc.arg()", () => {
+    const req = structuredClone(request);
+    const q = req.queries.find((q) => q.name === "RenameTitle");
+    if (!q) throw new Error("no RenameTitle");
+    q.params[0].column.name = "id";
+
+    expect(() => generate(req)).toThrow(
+      'two parameters map to "id"; name them with sqlc.arg(name)',
+    );
+  });
+
   it("points at CAST when sqlc could not type a column", () => {
     const req = structuredClone(request);
     const q = req.queries.find((q) => q.name === "GetTitle");

@@ -62,6 +62,16 @@ describe("fromMysql2", () => {
     expect(result).toEqual({ rows, rowCount: 1, insertId: 0 });
   });
 
+  it("sends a plain Uint8Array as a Buffer, which mysql2 binds as binary", async () => {
+    const connection = { execute: vi.fn().mockResolvedValue([[], []]) };
+
+    await fromMysql2(connection)("insert", [new Uint8Array([0xff, 0]), "x"]);
+
+    const [, values] = connection.execute.mock.calls[0] ?? [];
+    expect(Buffer.isBuffer(values?.[0])).toBe(true);
+    expect(values).toEqual([Buffer.from([0xff, 0]), "x"]);
+  });
+
   it("reads the affected rows and insert id of any other statement", async () => {
     const header = { affectedRows: 2, insertId: 7 };
     const connection = {
@@ -90,10 +100,18 @@ describe("expandSlices", () => {
     ]);
   });
 
-  it("throws when the query has more slice markers than slices given", () => {
+  it("throws when the slices or scalar groups do not match the markers", () => {
     expect(() => expandSlices("x IN (/*SLICE:x*/?)", [[]], [])).toThrow(
       "0 slice(s) given",
     );
+    expect(() =>
+      expandSlices("x IN (/*SLICE:x*/?)", [[], []], [[1], [2]]),
+    ).toThrow(
+      "2 slice(s) and 2 scalar group(s) given for a query with 1 marker(s)",
+    );
+    expect(() =>
+      expandSlices("x IN (/*SLICE:x*/?)", [[], ["a"], ["b"]], [[1]]),
+    ).toThrow("3 scalar group(s)");
   });
 
   it("turns an empty slice into NULL", () => {

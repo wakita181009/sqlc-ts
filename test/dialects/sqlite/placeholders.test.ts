@@ -7,6 +7,7 @@ const scan = (sql: string) =>
   scanPlaceholders(sql, {
     backslashEscapes: false,
     hashComments: false,
+    dashCommentNeedsSpace: false,
     bracketIdentifiers: true,
   });
 

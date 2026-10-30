@@ -61,7 +61,7 @@ const PARAM: Record<string, string> = {
 };
 
 /** sqlc reports `any` for expressions it cannot type, e.g. `max(x)` or `CONCAT(a, ?)`. */
-const UNRESOLVED = new Set(["", "any"]);
+export const UNRESOLVED: ReadonlySet<string> = new Set(["", "any"]);
 
 /** `BIGINT UNSIGNED` → `bigint`, `DECIMAL(10,2)` → `decimal`. */
 export function normalizeTypeName(column: Column): string {

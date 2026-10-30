@@ -62,5 +62,10 @@ export function expandSlices(
     next += slice.length;
     return slice.map((_, offset) => `?${first + offset}`).join(", ");
   });
+  if (index !== slices.length) {
+    throw new Error(
+      `expandSlices: ${slices.length} slice(s) given for a query with ${index} marker(s)`,
+    );
+  }
   return [text, [...flat, ...slices.flat()]];
 }

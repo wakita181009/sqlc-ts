@@ -197,14 +197,20 @@ function renderQuery(
     return resolved.ts;
   };
 
-  const columns = toFields(query.columns, "column", report, (column) => ({
-    ts: resolve(column, "output"),
-    nullable: directives.nullable.has(column.name)
-      ? true
-      : directives.notNull.has(column.name)
-        ? false
-        : !column.not_null,
-  }));
+  const columns = toFields(
+    query.columns,
+    "column",
+    dialect,
+    report,
+    (column) => ({
+      ts: resolve(column, "output"),
+      nullable: directives.nullable.has(column.name)
+        ? true
+        : directives.notNull.has(column.name)
+          ? false
+          : !column.not_null,
+    }),
+  );
   for (const name of [...directives.nullable, ...directives.notNull]) {
     if (!query.columns.some((column) => column.name === name)) {
       report(
@@ -214,13 +220,19 @@ function renderQuery(
   }
 
   const prepared = dialect.prepareQuery(query, report);
-  const params = toFields(prepared.params, "parameter", report, (column) => {
-    const ts = resolve(column, "param");
-    return {
-      ts: column.is_sqlc_slice ? arrayOf(ts) : ts,
-      nullable: !column.not_null,
-    };
-  });
+  const params = toFields(
+    prepared.params,
+    "parameter",
+    dialect,
+    report,
+    (column) => {
+      const ts = resolve(column, "param");
+      return {
+        ts: column.is_sqlc_slice ? arrayOf(ts) : ts,
+        nullable: !column.not_null,
+      };
+    },
+  );
 
   const sqlConst = `${fn}Sql`;
   const out: string[] = [];
@@ -234,7 +246,13 @@ function renderQuery(
   }
 
   const argsParam = params.length > 0 ? `, args: ${pascal}Args` : "";
-  const { prelude, call } = invocation(sqlConst, params, prepared.binds, used);
+  const { prelude, call } = invocation(
+    sqlConst,
+    params,
+    prepared.binds,
+    used,
+    report,
+  );
   const toRow =
     columns.length > 0
       ? `(row: Row): ${pascal}Row => (${rowMapper(columns)})`
@@ -320,11 +338,15 @@ function invocation(
   params: readonly Field[],
   binds: readonly Bind[],
   used: Used,
+  report: (problem: string) => void,
 ): { prelude: string; call: string } {
   const ref = (bind: Bind) => {
     const field = params.find((param) => param.column === bind.name);
-    if (!field) throw new Error(`sqlc-ts bug: no parameter named ${bind.name}`);
-    return `args.${field.key}`;
+    if (field) return `args.${field.key}`;
+    // The dialect has already reported the misalignment; keep going so every other
+    // problem in the file still gets listed.
+    report(`no parameter named "${bind.name}" to bind; this is a sqlc-ts bug`);
+    return "undefined";
   };
   const list = (group: readonly Bind[]) => `[${group.map(ref).join(", ")}]`;
   if (!binds.some((bind) => bind.slice)) {
@@ -354,6 +376,7 @@ function arrayOf(ts: string): string {
 function toFields(
   columns: readonly Column[],
   kind: "column" | "parameter",
+  dialect: Dialect,
   report: (problem: string) => void,
   describe: (column: Column) => { ts: string; nullable: boolean },
 ): Field[] {
@@ -363,13 +386,17 @@ function toFields(
     if (!IDENTIFIER.test(key)) {
       report(
         `${kind} "${column.name}" does not make a valid identifier; ${
-          kind === "column" ? "alias it with AS" : "name it with @name"
+          kind === "column"
+            ? "alias it with AS"
+            : `name it with ${dialect.namedParam}`
         }`,
       );
     } else if (seen.has(key)) {
       report(
         `two ${kind}s map to "${key}"; ${
-          kind === "column" ? "alias one with AS" : "name them with @name"
+          kind === "column"
+            ? "alias one with AS"
+            : `name them with ${dialect.namedParam}`
         }`,
       );
     }

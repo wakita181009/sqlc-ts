@@ -10,6 +10,8 @@ export type ScanOptions = {
   backslashEscapes: boolean;
   /** `# ...` is a comment (MySQL). */
   hashComments: boolean;
+  /** `--` starts a comment only before whitespace (MySQL); `n--?` is `n - -?`. */
+  dashCommentNeedsSpace: boolean;
   /** `[name]` is a quoted identifier (SQLite). */
   bracketIdentifiers: boolean;
 };
@@ -95,7 +97,12 @@ function skipNonCode(rest: string, options: ScanOptions): number {
     const close = rest.indexOf("]");
     return close === -1 ? rest.length : close + 1;
   }
-  if (rest.startsWith("--") || (options.hashComments && first === "#")) {
+  const dashComment =
+    rest.startsWith("--") &&
+    (!options.dashCommentNeedsSpace ||
+      rest.length === 2 ||
+      /\s/.test(rest[2] ?? ""));
+  if (dashComment || (options.hashComments && first === "#")) {
     return rest.indexOf("\n") === -1 ? rest.length : rest.indexOf("\n");
   }
   if (rest.startsWith("/*")) {

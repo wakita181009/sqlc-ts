@@ -58,9 +58,23 @@ describe("mysql scanning", () => {
       scanPlaceholders(sql, {
         backslashEscapes: true,
         hashComments: true,
+        dashCommentNeedsSpace: true,
         bracketIdentifiers: false,
       }).map((p) => p.kind),
     ).toEqual(["anonymous", "slice"]);
+  });
+
+  it("reads -- as a comment only before whitespace", () => {
+    const options = {
+      backslashEscapes: true,
+      hashComments: true,
+      dashCommentNeedsSpace: true,
+      bracketIdentifiers: false,
+    };
+
+    expect(scanPlaceholders("SELECT n--? AS x", options)).toHaveLength(1);
+    expect(scanPlaceholders("SELECT n -- ?", options)).toHaveLength(0);
+    expect(scanPlaceholders("SELECT n --", options)).toHaveLength(0);
   });
 
   it("finds @name outside literals and leaves @@system variables alone", () => {
@@ -69,6 +83,7 @@ describe("mysql scanning", () => {
       {
         backslashEscapes: true,
         hashComments: true,
+        dashCommentNeedsSpace: true,
         bracketIdentifiers: false,
       },
     );
@@ -161,5 +176,7 @@ describe("mysql placeholders", () => {
     for (const prepared of [extra, missing, wrongSlice]) {
       expect(prepared.problems[0]).toContain("do not line up");
     }
+    // A marker sqlc has no slice for binds nothing, so the generator has nothing to resolve.
+    expect(wrongSlice.binds).toEqual([]);
   });
 });

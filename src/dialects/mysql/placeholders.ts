@@ -1,14 +1,14 @@
 import type { Column, Query } from "../../request.ts";
 import type { Bind, PreparedQuery } from "../dialect.ts";
 import { type ScanOptions, scanPlaceholders } from "../scan.ts";
+import { UNRESOLVED } from "./type-map.ts";
 
 const MYSQL_SCAN: ScanOptions = {
   backslashEscapes: true,
   hashComments: true,
+  dashCommentNeedsSpace: true,
   bracketIdentifiers: false,
 };
-
-const UNTYPED = new Set(["", "any"]);
 
 /**
  * MySQL only has anonymous `?`, so the values go in textual order and the text is used as
@@ -38,7 +38,10 @@ export function prepareMysqlQuery(
     }
     if (placeholder.kind === "slice") {
       const param = slices[sliceIndex++];
-      if (param?.column.name !== placeholder.name) aligned = false;
+      if (param?.column.name !== placeholder.name) {
+        aligned = false;
+        continue;
+      }
       binds.push({ name: placeholder.name, slice: true });
       continue;
     }
@@ -83,8 +86,8 @@ function dedupe(columns: readonly Column[]): Column[] {
       named.set(column.name, column);
       out.push(column);
     } else if (
-      UNTYPED.has(current.type.name) &&
-      !UNTYPED.has(column.type.name)
+      UNRESOLVED.has(current.type.name) &&
+      !UNRESOLVED.has(column.type.name)
     ) {
       named.set(column.name, column);
       out[out.indexOf(current)] = column;
