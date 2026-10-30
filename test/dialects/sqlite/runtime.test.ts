@@ -1,10 +1,8 @@
 import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { beforeEach, describe, expect, it } from "vitest";
-import {
-  expandSlices,
-  fromSqlite,
-} from "../../../src/dialects/sqlite/runtime.ts";
+import { fromSqlite } from "../../../src/dialects/sqlite/adapters/sqlite.ts";
+import { expandSlices } from "../../../src/dialects/sqlite/runtime.ts";
 import {
   countdown,
   pickTitles,

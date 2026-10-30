@@ -61,12 +61,12 @@ This runs `sqlc generate` (pass `-f path/to/sqlc.yaml` if the config is not in t
 
 To use a different sqlc, set `SQLC_PATH`. Without it, sqlc-ts uses the bundled binary, then `sqlc` on `PATH` (for installs with optional dependencies turned off, or a platform without a package).
 
-Writes one file per query file (`users.sql` → `users.ts`), `enums.ts` when the schema has enums, and `runtime.ts` for the engine (copied as is, so the output has no dependency on this package). Generated files from query files that no longer exist are removed; other files in the directory are left alone.
+Writes one file per query file (`users.sql` → `users.ts`), `enums.ts` when the schema has enums, `runtime.ts` for the engine (the `Executor` type the query functions take) and one driver adapter per file under `adapters/` (`adapters/pg.ts`, ...). The runtime and adapters are copied from this package, so the output has no dependency on it; import the adapter for the driver you use and ignore the rest. Generated files from query files that no longer exist are removed; other files in the directory are left alone.
 
 ```ts
 // Postgres, with postgres.js
 import postgres from "postgres";
-import { fromPostgresJs } from "./gen/runtime";
+import { fromPostgresJs } from "./gen/adapters/postgres-js";
 import { getUser } from "./gen/users";
 
 const db = fromPostgresJs(postgres(process.env.DATABASE_URL));
@@ -78,7 +78,9 @@ const user = await getUser(db, { id }); // GetUserRow | null
 import { PGlite } from "@electric-sql/pglite";
 import { neon } from "@neondatabase/serverless";
 import pg from "pg";
-import { fromNeon, fromPg, fromPglite } from "./gen/runtime";
+import { fromNeon } from "./gen/adapters/neon";
+import { fromPg } from "./gen/adapters/pg";
+import { fromPglite } from "./gen/adapters/pglite";
 
 const db = fromPg(new pg.Pool({ connectionString: process.env.DATABASE_URL }));
 const local = fromPglite(new PGlite());
@@ -88,7 +90,8 @@ const edge = fromNeon(neon(process.env.DATABASE_URL)); // a Neon Pool or Client 
 ```ts
 // SQLite, with node:sqlite (better-sqlite3 has the same shape) or Cloudflare D1
 import { DatabaseSync } from "node:sqlite";
-import { fromD1, fromSqlite } from "./gen/runtime";
+import { fromD1 } from "./gen/adapters/d1";
+import { fromSqlite } from "./gen/adapters/sqlite";
 
 const db = fromSqlite(new DatabaseSync("app.db"));
 const d1 = fromD1(env.DB);
@@ -97,7 +100,7 @@ const d1 = fromD1(env.DB);
 ```ts
 // MySQL, with mysql2 (a Connection, PoolConnection or Pool from mysql2/promise)
 import mysql from "mysql2/promise";
-import { fromMysql2 } from "./gen/runtime";
+import { fromMysql2 } from "./gen/adapters/mysql2";
 
 const db = fromMysql2(mysql.createPool(process.env.DATABASE_URL));
 const id = await createUser(db, { name }); // :execlastid, the AUTO_INCREMENT id
@@ -176,7 +179,7 @@ pnpm fixture    # after changing the generator: regenerates test/fixture/* with 
 
 `test/fixture/{postgres,sqlite,mysql}/gen` are the committed outputs for the fixture schemas; the tests compare against them, `pnpm typecheck` compiles them, and the SQLite output is run against an in-memory `node:sqlite` database. The Postgres and MySQL outputs run against real servers when `DATABASE_URL` (postgres.js) and `MYSQL_URL` (mysql2) are set, e.g. `DATABASE_URL=postgres://postgres@localhost:5432/postgres MYSQL_URL=mysql://root@127.0.0.1:3306 pnpm test`; each run works in its own schema or database. Without them those tests are skipped. CI's `check` job starts Postgres 16 and MySQL 8 services and sets both.
 
-Engine-specific code lives in `src/dialects/<engine>/`: the type map, the runtime copied into the output, and (for SQLite and MySQL) the placeholder handling.
+Engine-specific code lives in `src/dialects/<engine>/`: the type map, the runtime and `adapters/` copied into the output, and (for SQLite and MySQL) the placeholder handling.
 
 ### Bundled sqlc and releases
 

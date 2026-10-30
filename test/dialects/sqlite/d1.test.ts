@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { Miniflare } from "miniflare";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { fromD1 } from "../../../src/dialects/sqlite/runtime.ts";
+import { fromD1 } from "../../../src/dialects/sqlite/adapters/d1.ts";
 import type { Executor } from "../../fixture/sqlite/gen/runtime.ts";
 import {
   createTitle,

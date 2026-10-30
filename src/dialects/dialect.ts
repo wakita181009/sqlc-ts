@@ -24,6 +24,8 @@ export type Dialect = {
   systemSchemas: ReadonlySet<string>;
   /** Copied into the output as `runtime.ts`. */
   runtime: URL;
+  /** Directory of driver adapters, each copied into the output as `adapters/<name>.ts`. */
+  adapters: URL;
   /** Whether the runtime's Executor reports insertId, which :execlastid needs. */
   hasInsertId: boolean;
   /** How to name a parameter in this engine's SQL, for error messages: `@name`, `sqlc.arg(name)`. */

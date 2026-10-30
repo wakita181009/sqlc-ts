@@ -9,7 +9,7 @@ import {
   it,
   vi,
 } from "vitest";
-import { fromPostgresJs } from "../../../src/dialects/postgres/runtime.ts";
+import { fromPostgresJs } from "../../../src/dialects/postgres/adapters/postgres-js.ts";
 import {
   copyViews,
   countdown,
