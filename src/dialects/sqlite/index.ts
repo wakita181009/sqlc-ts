@@ -1,11 +1,13 @@
-import { defineDialect } from "../dialect.ts";
+import type { Dialect } from "../dialect.ts";
 import { prepareSqliteQuery } from "./placeholders.ts";
 import { resolveType } from "./type-map.ts";
 
-export const sqlite = defineDialect({
+export const sqlite: Dialect = {
   engine: "sqlite",
   systemSchemas: new Set(),
   runtime: new URL("./runtime.ts", import.meta.url),
+  hasInsertId: false,
+  namedParam: "@name",
   resolveType,
   prepareQuery: prepareSqliteQuery,
-});
+};

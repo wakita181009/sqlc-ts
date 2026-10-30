@@ -1,10 +1,13 @@
-import { defineDialect, paramsByNumber } from "../dialect.ts";
+import type { Dialect } from "../dialect.ts";
+import { paramsByNumber } from "../dialect.ts";
 import { resolveType } from "./type-map.ts";
 
-export const postgres = defineDialect({
+export const postgres: Dialect = {
   engine: "postgresql",
   systemSchemas: new Set(["pg_catalog", "information_schema", "pg_temp"]),
   runtime: new URL("./runtime.ts", import.meta.url),
+  hasInsertId: false,
+  namedParam: "@name",
   resolveType,
   prepareQuery(query, report) {
     if (query.params.some((param) => param.column.is_sqlc_slice)) {
@@ -19,4 +22,4 @@ export const postgres = defineDialect({
       binds: params.map((column) => ({ name: column.name, slice: false })),
     };
   },
-});
+};
