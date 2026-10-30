@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/wakita181009/sqlc-ts/compare/sqlc-ts-v0.2.0...sqlc-ts-v0.3.0) (2026-10-30)
+
+
+### Features
+
+* add a mysql dialect with mysql2 runtime and :execlastid ([#9](https://github.com/wakita181009/sqlc-ts/issues/9)) ([5073dd6](https://github.com/wakita181009/sqlc-ts/commit/5073dd6a5f86d9e11098a5941b5ced0093f56e5d))
+
 ## [0.2.0](https://github.com/wakita181009/sqlc-ts/compare/sqlc-ts-v0.1.0...sqlc-ts-v0.2.0) (2026-10-28)
 
 
