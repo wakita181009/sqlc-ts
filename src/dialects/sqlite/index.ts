@@ -6,6 +6,8 @@ export const sqlite: Dialect = {
   engine: "sqlite",
   systemSchemas: new Set(),
   runtime: new URL("./runtime.ts", import.meta.url),
+  hasInsertId: false,
+  namedParam: "@name",
   resolveType,
   prepareQuery: prepareSqliteQuery,
 };

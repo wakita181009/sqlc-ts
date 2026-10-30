@@ -23,16 +23,19 @@ const STRICT_FLAGS = [
   "--skipLibCheck",
 ];
 
-describe.each(["postgres", "sqlite"])("%s fixture output", (dialect) => {
-  it("compiles under the strictest tsconfig flags", () => {
-    const dir = fileURLToPath(
-      new URL(`./fixture/${dialect}/gen/`, import.meta.url),
-    );
-    const files = readdirSync(dir).map((name) => dir + name);
-    const tsc = spawnSync(TSC, [...STRICT_FLAGS, ...files], {
-      encoding: "utf8",
+describe.each(["postgres", "sqlite", "mysql"])(
+  "%s fixture output",
+  (dialect) => {
+    it("compiles under the strictest tsconfig flags", () => {
+      const dir = fileURLToPath(
+        new URL(`./fixture/${dialect}/gen/`, import.meta.url),
+      );
+      const files = readdirSync(dir).map((name) => dir + name);
+      const tsc = spawnSync(TSC, [...STRICT_FLAGS, ...files], {
+        encoding: "utf8",
+      });
+      expect(tsc.stdout + tsc.stderr).toBe("");
+      expect(tsc.status).toBe(0);
     });
-    expect(tsc.stdout + tsc.stderr).toBe("");
-    expect(tsc.status).toBe(0);
-  });
-});
+  },
+);

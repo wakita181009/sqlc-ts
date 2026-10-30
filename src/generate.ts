@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import type { Dialect, EnumTypes } from "./dialects/dialect.ts";
+import type { Bind, Dialect, EnumTypes } from "./dialects/dialect.ts";
 import { pickDialect, supportedEngines } from "./dialects/index.ts";
 import type { Column, GenerateRequest, Query } from "./request.ts";
 
@@ -197,14 +197,20 @@ function renderQuery(
     return resolved.ts;
   };
 
-  const columns = toFields(query.columns, "column", report, (column) => ({
-    ts: resolve(column, "output"),
-    nullable: directives.nullable.has(column.name)
-      ? true
-      : directives.notNull.has(column.name)
-        ? false
-        : !column.not_null,
-  }));
+  const columns = toFields(
+    query.columns,
+    "column",
+    dialect,
+    report,
+    (column) => ({
+      ts: resolve(column, "output"),
+      nullable: directives.nullable.has(column.name)
+        ? true
+        : directives.notNull.has(column.name)
+          ? false
+          : !column.not_null,
+    }),
+  );
   for (const name of [...directives.nullable, ...directives.notNull]) {
     if (!query.columns.some((column) => column.name === name)) {
       report(
@@ -215,10 +221,9 @@ function renderQuery(
 
   const prepared = dialect.prepareQuery(query, report);
   const params = toFields(
-    [...query.params]
-      .sort((a, b) => a.number - b.number)
-      .map((param) => param.column),
+    prepared.params,
     "parameter",
+    dialect,
     report,
     (column) => {
       const ts = resolve(column, "param");
@@ -241,7 +246,7 @@ function renderQuery(
   }
 
   const argsParam = params.length > 0 ? `, args: ${pascal}Args` : "";
-  const { prelude, call } = invocation(sqlConst, params, prepared.slices, used);
+  const { prelude, call } = invocation(sqlConst, params, prepared.binds, used);
   const toRow =
     columns.length > 0
       ? `(row: Row): ${pascal}Row => (${rowMapper(columns)})`
@@ -294,9 +299,24 @@ function renderQuery(
           `}\n`,
       );
       break;
+    case ":execlastid":
+      if (!dialect.hasInsertId) {
+        report(
+          `:execlastid is not supported on ${dialect.engine}; use RETURNING with :one`,
+        );
+        break;
+      }
+      out.push(
+        `${docs}export async function ${fn}(db: Executor${argsParam}): Promise<number> {\n` +
+          prelude +
+          `  const { insertId } = await db(${call});\n` +
+          `  return insertId;\n` +
+          `}\n`,
+      );
+      break;
     default:
       report(
-        `${query.cmd} is not supported; use :one, :many, :exec or :execrows`,
+        `${query.cmd} is not supported; use :one, :many, :exec, :execrows or :execlastid`,
       );
   }
   return out.join("\n");
@@ -304,26 +324,36 @@ function renderQuery(
 
 /**
  * The statement and parameter list passed to the executor. Slices need expanding at
- * runtime, so queries with any go through the runtime's expandSlices first.
+ * runtime, so queries with any go through the runtime's expandSlices first, with the
+ * scalars grouped by the slice marker they come before.
  */
 function invocation(
   sqlConst: string,
   params: readonly Field[],
-  slices: readonly string[],
+  binds: readonly Bind[],
   used: Used,
 ): { prelude: string; call: string } {
-  const list = (fields: readonly Field[]) =>
-    `[${fields.map((field) => `args.${field.key}`).join(", ")}]`;
-  if (slices.length === 0)
-    return { prelude: "", call: `${sqlConst}, ${list(params)}` };
+  // Every dialect builds its binds from the parameters it returns (a marker with no
+  // parameter is reported and binds nothing), so each name is here.
+  const keys = new Map(params.map((param) => [param.column, param.key]));
+  const list = (group: readonly Bind[]) =>
+    `[${group.map((bind) => `args.${keys.get(bind.name)}`).join(", ")}]`;
+  if (!binds.some((bind) => bind.slice)) {
+    return { prelude: "", call: `${sqlConst}, ${list(binds)}` };
+  }
   used.helpers.add("expandSlices");
-  // One marker per use, so a slice used twice is passed twice.
-  const sliceFields = slices.flatMap((name) =>
-    params.filter((param) => param.column === name),
-  );
-  const scalars = params.filter((param) => !sliceFields.includes(param));
+  const groups: Bind[][] = [[]];
+  const slices: Bind[] = [];
+  for (const bind of binds) {
+    if (bind.slice) {
+      slices.push(bind);
+      groups.push([]);
+    } else {
+      groups[groups.length - 1]?.push(bind);
+    }
+  }
   return {
-    prelude: `  const [query, values] = expandSlices(${sqlConst}, ${list(scalars)}, ${list(sliceFields)});\n`,
+    prelude: `  const [query, values] = expandSlices(${sqlConst}, [${groups.map(list).join(", ")}], ${list(slices)});\n`,
     call: "query, values",
   };
 }
@@ -335,6 +365,7 @@ function arrayOf(ts: string): string {
 function toFields(
   columns: readonly Column[],
   kind: "column" | "parameter",
+  dialect: Dialect,
   report: (problem: string) => void,
   describe: (column: Column) => { ts: string; nullable: boolean },
 ): Field[] {
@@ -344,13 +375,17 @@ function toFields(
     if (!IDENTIFIER.test(key)) {
       report(
         `${kind} "${column.name}" does not make a valid identifier; ${
-          kind === "column" ? "alias it with AS" : "name it with @name"
+          kind === "column"
+            ? "alias it with AS"
+            : `name it with ${dialect.namedParam}`
         }`,
       );
     } else if (seen.has(key)) {
       report(
         `two ${kind}s map to "${key}"; ${
-          kind === "column" ? "alias one with AS" : "name them with @name"
+          kind === "column"
+            ? "alias one with AS"
+            : `name them with ${dialect.namedParam}`
         }`,
       );
     }

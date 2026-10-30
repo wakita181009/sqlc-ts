@@ -1,9 +1,16 @@
 import { describe, expect, it } from "vitest";
-import {
-  prepareSqliteQuery,
-  scanPlaceholders,
-} from "../../../src/dialects/sqlite/placeholders.ts";
+import { scanPlaceholders } from "../../../src/dialects/scan.ts";
+import { prepareSqliteQuery } from "../../../src/dialects/sqlite/placeholders.ts";
 import type { Column, Query } from "../../../src/request.ts";
+
+const scan = (sql: string) =>
+  scanPlaceholders(sql, {
+    backslashEscapes: false,
+    hashComments: false,
+    dashCommentNeedsSpace: false,
+    bracketIdentifiers: true,
+    sessionVariables: false,
+  });
 
 function column(type: string): Column {
   return {
@@ -13,6 +20,9 @@ function column(type: string): Column {
     array_dims: 0,
     is_func_call: false,
     is_sqlc_slice: false,
+    is_named_param: false,
+    length: -1,
+    unsigned: false,
     table: null,
     embed_table: null,
     type: { catalog: "", schema: "", name: type },
@@ -44,22 +54,28 @@ describe("sqlite placeholders", () => {
   it("skips literals, quoted identifiers and comments", () => {
     const sql = `SELECT '?', "a?b", \`c?\`, 'it''s ?' -- ? here\n, /* ? */ x FROM t WHERE a = ? AND b = ?2 AND c IN (/*SLICE:ids*/?)`;
 
-    expect(scanPlaceholders(sql).map((p) => p.kind)).toEqual([
+    expect(scan(sql).map((p) => p.kind)).toEqual([
       "anonymous",
       "numbered",
       "slice",
     ]);
   });
 
+  it("leaves @name alone where sqlc has already rewritten it", () => {
+    expect(scan("SELECT @x FROM t WHERE a = ?")).toEqual([
+      { kind: "anonymous", start: 27, end: 28 },
+    ]);
+  });
+
   it("skips bracket identifiers", () => {
-    expect(scanPlaceholders("SELECT [a?b] FROM t WHERE x = ?")).toHaveLength(1);
+    expect(scan("SELECT [a?b] FROM t WHERE x = ?")).toHaveLength(1);
   });
 
   it("treats an unterminated literal, identifier or comment as running to the end", () => {
-    expect(scanPlaceholders("SELECT 'oops ?")).toEqual([]);
-    expect(scanPlaceholders("SELECT [oops ?")).toEqual([]);
-    expect(scanPlaceholders("SELECT 1 /* ?")).toEqual([]);
-    expect(scanPlaceholders("SELECT 1 -- ?")).toEqual([]);
+    expect(scan("SELECT 'oops ?")).toEqual([]);
+    expect(scan("SELECT [oops ?")).toEqual([]);
+    expect(scan("SELECT 1 /* ?")).toEqual([]);
+    expect(scan("SELECT 1 -- ?")).toEqual([]);
   });
 
   it("renumbers scalars 1..n in sqlc order and leaves slice markers alone", () => {
@@ -72,7 +88,11 @@ describe("sqlite placeholders", () => {
     );
 
     expect(prepared.text).toBe("a = ?1 AND b IN (/*SLICE:b*/?) AND c = ?2");
-    expect(prepared.slices).toEqual(["b"]);
+    expect(prepared.binds).toEqual([
+      { name: "a", slice: false },
+      { name: "c", slice: false },
+      { name: "b", slice: true },
+    ]);
     expect(prepared.problems).toEqual([]);
   });
 

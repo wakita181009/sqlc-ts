@@ -86,7 +86,7 @@ export type ListTitlesByIdsRow = {
  * Anonymous ? after the slice: sqlc numbers it 1, the slice comes last.
  */
 export async function listTitlesByIds(db: Executor, args: ListTitlesByIdsArgs): Promise<ListTitlesByIdsRow[]> {
-  const [query, values] = expandSlices(listTitlesByIdsSql, [args.status], [args.ids]);
+  const [query, values] = expandSlices(listTitlesByIdsSql, [[args.status], []], [args.ids]);
   const { rows } = await db(query, values);
   return rows.map((row: Row): ListTitlesByIdsRow => ({
     id: row.id as number,
@@ -107,7 +107,7 @@ export type ListTitlesByIdsOrNamesRow = {
 };
 
 export async function listTitlesByIdsOrNames(db: Executor, args: ListTitlesByIdsOrNamesArgs): Promise<ListTitlesByIdsOrNamesRow[]> {
-  const [query, values] = expandSlices(listTitlesByIdsOrNamesSql, [args.status], [args.ids, args.names]);
+  const [query, values] = expandSlices(listTitlesByIdsOrNamesSql, [[args.status], [], []], [args.ids, args.names]);
   const { rows } = await db(query, values);
   return rows.map((row: Row): ListTitlesByIdsOrNamesRow => ({
     id: row.id as number,
@@ -128,7 +128,7 @@ export type ListTitlesByIdsTwiceRow = {
  * The same slice twice: sqlc emits one parameter and two markers.
  */
 export async function listTitlesByIdsTwice(db: Executor, args: ListTitlesByIdsTwiceArgs): Promise<ListTitlesByIdsTwiceRow[]> {
-  const [query, values] = expandSlices(listTitlesByIdsTwiceSql, [], [args.ids, args.ids]);
+  const [query, values] = expandSlices(listTitlesByIdsTwiceSql, [[], [], []], [args.ids, args.ids]);
   const { rows } = await db(query, values);
   return rows.map((row: Row): ListTitlesByIdsTwiceRow => ({
     id: row.id as number,
@@ -340,7 +340,7 @@ export type PublishTitlesRow = {
 };
 
 export async function publishTitles(db: Executor, args: PublishTitlesArgs): Promise<PublishTitlesRow[]> {
-  const [query, values] = expandSlices(publishTitlesSql, [], [args.ids]);
+  const [query, values] = expandSlices(publishTitlesSql, [[], []], [args.ids]);
   const { rows } = await db(query, values);
   return rows.map((row: Row): PublishTitlesRow => ({
     id: row.id as number,
@@ -366,7 +366,7 @@ export type ListTitlesNotInRow = {
  * Comments inside the statement are skipped by the placeholder scanner, '?' and all.
  */
 export async function listTitlesNotIn(db: Executor, args: ListTitlesNotInArgs): Promise<ListTitlesNotInRow[]> {
-  const [query, values] = expandSlices(listTitlesNotInSql, [], [args.ids]);
+  const [query, values] = expandSlices(listTitlesNotInSql, [[], []], [args.ids]);
   const { rows } = await db(query, values);
   return rows.map((row: Row): ListTitlesNotInRow => ({
     id: row.id as number,

@@ -16,6 +16,12 @@ export type Column = {
   array_dims: number;
   is_func_call: boolean;
   is_sqlc_slice: boolean;
+  /** From `sqlc.arg()` / `sqlc.narg()` / `@name`, as opposed to a bare `?` sqlc named itself. */
+  is_named_param: boolean;
+  /** Declared length or display width, -1 when none; MySQL fills this in. */
+  length: number;
+  /** MySQL's UNSIGNED modifier. */
+  unsigned: boolean;
   type: Identifier;
   table: Identifier | null;
   embed_table: Identifier | null;
@@ -30,7 +36,7 @@ export type Query = {
   name: string;
   /** `:one`, `:many`, `:exec`, `:execrows`, ... */
   cmd: string;
-  /** The SQL with named parameters already rewritten to $1, $2, ... */
+  /** The SQL with named parameters already rewritten to $1, $2, ... (`?N` on SQLite, `?` on MySQL). */
   text: string;
   columns: Column[];
   params: Parameter[];

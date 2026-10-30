@@ -2,7 +2,7 @@
 
 [![npm](https://img.shields.io/npm/v/sqlc-ts)](https://www.npmjs.com/package/sqlc-ts) [![CI](https://github.com/wakita181009/sqlc-ts/actions/workflows/ci.yml/badge.svg)](https://github.com/wakita181009/sqlc-ts/actions/workflows/ci.yml) [![codecov](https://codecov.io/gh/wakita181009/sqlc-ts/graph/badge.svg)](https://codecov.io/gh/wakita181009/sqlc-ts)
 
-Type-safe TypeScript from raw SQL, checked statically with no database. Supports PostgreSQL and SQLite.
+Type-safe TypeScript from raw SQL, checked statically with no database. Supports PostgreSQL, SQLite and MySQL.
 
 The analysis is done by [sqlc](https://sqlc.dev), the Go tool. sqlc parses your schema and queries (Postgres's own parser via pg_query for `postgresql`) and checks every query against the schema, all without connecting to a database. This package does not analyze SQL itself: it reads the JSON that sqlc emits with `gen: json` and writes typed TypeScript functions from it.
 
@@ -10,7 +10,7 @@ The analysis is done by [sqlc](https://sqlc.dev), the Go tool. sqlc parses your 
 - **Errors at generate time**: an unknown column, a wrong table, or a type mismatch fails generation, not your app at runtime.
 - **sqlc included**: `npm install` brings a pinned sqlc binary for your platform, so there is no Go toolchain or separate sqlc install.
 - **Plain SQL**: queries are `.sql` files with a `-- name:` comment, not a query builder or an ORM.
-- **PostgreSQL and SQLite**: sqlc's `postgresql` and `sqlite` engines, each with its own type mapping and a small runtime adapter.
+- **PostgreSQL, SQLite and MySQL**: sqlc's `postgresql`, `sqlite` and `mysql` engines, each with its own type mapping and a small runtime adapter.
 
 Unofficial, not affiliated with sqlc (and unrelated to the `sqlc-typescript` npm package or sqlc's own `sqlc-gen-typescript` plugin).
 
@@ -81,7 +81,16 @@ import { fromSqlite } from "./gen/runtime";
 const db = fromSqlite(new DatabaseSync("app.db"));
 ```
 
-Supported commands: `:one` (row or null), `:many`, `:exec`, `:execrows` (affected row count). Column and parameter names become camelCase. Any object with the `Executor` shape works in place of the adapters, so a transaction handle or a pooled client can be passed the same way.
+```ts
+// MySQL, with mysql2 (a Connection, PoolConnection or Pool from mysql2/promise)
+import mysql from "mysql2/promise";
+import { fromMysql2 } from "./gen/runtime";
+
+const db = fromMysql2(mysql.createPool(process.env.DATABASE_URL));
+const id = await createUser(db, { name }); // :execlastid, the AUTO_INCREMENT id
+```
+
+Supported commands: `:one` (row or null), `:many`, `:exec`, `:execrows` (affected row count), and on MySQL `:execlastid` (the AUTO_INCREMENT id of the inserted row, since MySQL has no `RETURNING`). Column and parameter names become camelCase. Any object with the `Executor` shape works in place of the adapters, so a transaction handle or a pooled client can be passed the same way.
 
 ## Overriding nullability
 
@@ -112,6 +121,12 @@ Alias expression columns (`count(*) AS count`, `EXISTS (...) AS found`). sqlc na
 
 `sqlc.slice()` is supported: the parameter becomes an array, and the generated function expands the placeholders at call time. An empty array expands to `NULL`, as in sqlc's own Go output, so `IN ()` matches nothing and `NOT IN ()` matches nothing either. sqlc types a parameter from its first use, so write `price >= sqlc.narg('min')` before `sqlc.narg('min') IS NULL`, or the parameter comes out untyped.
 
+### MySQL
+
+Matches mysql2's default options: every integer type including `BIGINT` is `number` (parameters also take `bigint`; values beyond 2^53 are rounded unless you turn on `supportBigNumbers`, in which case cast), `DECIMAL` is `string` (parameters also take `number`), `DATE` / `DATETIME` / `TIMESTAMP` are `Date`, `JSON` is `JsonValue` (parameters take an array or object, the only values mysql2 sends as JSON), `BLOB` / `BINARY` / `BIT` are `Uint8Array` (mysql2 returns Buffers), `BOOLEAN` is `number` (parameters also take `boolean`), `ENUM` is a string union named `<table>_<column>`, and `TIME` and anything else come back as text, so `string`. sqlc reports a `SET` column as an enum too, so it gets the same union even though MySQL returns several members joined with commas; cast to `CHAR` where that matters.
+
+Parameters are `?`, `sqlc.arg(name)`, `sqlc.narg(name)` and `sqlc.slice(name)`. `@name` is not a parameter on MySQL: sqlc leaves it in the SQL, where MySQL reads it as a session variable (NULL unless set), so sqlc-ts fails generation when one is left in a query (`@@system_variables` are fine). Alias expression columns (`count(*) AS count`), as for SQLite. `sqlc.slice()` is supported, with an empty array expanding to `NULL`. sqlc cannot type `max(...)` and some other expressions on MySQL; cast them (`CAST(max(x) AS DATETIME)`) and mark them `@nullable` where an outer join can make them null.
+
 ## Development
 
 Development uses Node 26; Node and pnpm versions are pinned in `mise.toml` (`mise install`). The published CLI supports Node 22+, and CI runs the tests on Node 22, 24 and 26.
@@ -126,9 +141,9 @@ pnpm sqlc:fetch # downloads this platform's sqlc (the version in tools/sqlc/go.m
 pnpm fixture    # after changing the generator: regenerates test/fixture/* with that sqlc
 ```
 
-`test/fixture/{postgres,sqlite}/gen` are the committed outputs for the fixture schemas; the tests compare against them, `pnpm typecheck` compiles them, and the SQLite output is run against an in-memory `node:sqlite` database. The Postgres output runs against a real server through postgres.js when `DATABASE_URL` is set (`DATABASE_URL=postgres://postgres@localhost:5432/postgres pnpm test`; each run works in its own schema); without it those tests are skipped. CI's `check` job starts a Postgres 16 service and sets it.
+`test/fixture/{postgres,sqlite,mysql}/gen` are the committed outputs for the fixture schemas; the tests compare against them, `pnpm typecheck` compiles them, and the SQLite output is run against an in-memory `node:sqlite` database. The Postgres and MySQL outputs run against real servers when `DATABASE_URL` (postgres.js) and `MYSQL_URL` (mysql2) are set, e.g. `DATABASE_URL=postgres://postgres@localhost:5432/postgres MYSQL_URL=mysql://root@127.0.0.1:3306 pnpm test`; each run works in its own schema or database. Without them those tests are skipped. CI's `check` job starts Postgres 16 and MySQL 8 services and sets both.
 
-Engine-specific code lives in `src/dialects/<engine>/`: the type map, the runtime copied into the output, and (for SQLite) the placeholder rewriting.
+Engine-specific code lives in `src/dialects/<engine>/`: the type map, the runtime copied into the output, and (for SQLite and MySQL) the placeholder handling.
 
 ### Bundled sqlc and releases
 

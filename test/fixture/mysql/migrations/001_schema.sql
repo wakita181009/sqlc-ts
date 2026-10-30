@@ -1,0 +1,17 @@
+CREATE TABLE titles (
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  name VARCHAR(255) NOT NULL,
+  status ENUM('draft', 'published') NOT NULL DEFAULT 'draft',
+  price DECIMAL(10, 2),
+  rating FLOAT,
+  meta JSON,
+  poster BLOB,
+  is_public BOOLEAN NOT NULL DEFAULT FALSE,
+  published_on DATE,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE views (
+  title_id BIGINT UNSIGNED NOT NULL,
+  viewed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

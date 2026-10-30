@@ -281,19 +281,22 @@ describe("generated sqlite code: WITH clauses", () => {
 });
 
 describe("expandSlices", () => {
-  it("numbers slice placeholders after the scalars and flattens the values", () => {
+  it("numbers slice placeholders after the scalars and flattens the groups", () => {
     expect(
       expandSlices(
         "a = ?1 AND b IN (/*SLICE:b*/?) AND c IN (/*SLICE:c*/?)",
-        ["x"],
+        [["x"], [], []],
         [[1, 2], ["y"]],
       ),
     ).toEqual(["a = ?1 AND b IN (?2, ?3) AND c IN (?4)", ["x", 1, 2, "y"]]);
   });
 
-  it("throws when the query has more slice markers than slices given", () => {
+  it("throws when the slices do not match the markers", () => {
     expect(() => expandSlices("x IN (/*SLICE:x*/?)", [], [])).toThrow(
       "0 slice(s) given",
+    );
+    expect(() => expandSlices("x IN (/*SLICE:x*/?)", [], [[1], [2]])).toThrow(
+      "2 slice(s) given for a query with 1 marker(s)",
     );
   });
 

@@ -4,11 +4,19 @@ export type EnumTypes = ReadonlyMap<string, string>;
 
 export type ResolvedType = { ts: string } | { error: string };
 
+/** One value the generated function passes to the executor, by parameter name. */
+export type Bind = { name: string; slice: boolean };
+
 /**
- * The query text ready to embed, plus the names of its `sqlc.slice()` parameters in the
- * order their markers appear in the text (the runtime expands them in that order).
+ * The query text ready to embed, the columns that make up its Args type (one per argument,
+ * in declaration order), and what to pass to the executor in the order the runtime wants
+ * it. The runtime expands slices where their markers stand, so a slice bind is one entry.
  */
-export type PreparedQuery = { text: string; slices: readonly string[] };
+export type PreparedQuery = {
+  text: string;
+  params: readonly Column[];
+  binds: readonly Bind[];
+};
 
 export type Dialect = {
   engine: string;
@@ -16,6 +24,10 @@ export type Dialect = {
   systemSchemas: ReadonlySet<string>;
   /** Copied into the output as `runtime.ts`. */
   runtime: URL;
+  /** Whether the runtime's Executor reports insertId, which :execlastid needs. */
+  hasInsertId: boolean;
+  /** How to name a parameter in this engine's SQL, for error messages: `@name`, `sqlc.arg(name)`. */
+  namedParam: string;
   resolveType(
     column: Column,
     role: "output" | "param",
@@ -23,3 +35,10 @@ export type Dialect = {
   ): ResolvedType;
   prepareQuery(query: Query, report: (problem: string) => void): PreparedQuery;
 };
+
+/** sqlc's parameters in the order it numbered them. */
+export function paramsByNumber(query: Query): Column[] {
+  return [...query.params]
+    .sort((a, b) => a.number - b.number)
+    .map((param) => param.column);
+}

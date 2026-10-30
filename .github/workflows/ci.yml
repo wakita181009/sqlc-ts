@@ -12,7 +12,7 @@ jobs:
       matrix:
         # 22 is the oldest supported runtime (engines.node); 26 is what development uses.
         node: [22, 24, 26]
-    # The Postgres runtime tests run only when DATABASE_URL is set.
+    # The Postgres and MySQL runtime tests run only when DATABASE_URL / MYSQL_URL are set.
     services:
       postgres:
         image: postgres:16
@@ -25,8 +25,20 @@ jobs:
           --health-interval 2s
           --health-timeout 5s
           --health-retries 15
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 30
     env:
       DATABASE_URL: postgres://postgres@localhost:5432/postgres
+      MYSQL_URL: mysql://root@127.0.0.1:3306
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
