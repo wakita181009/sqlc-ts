@@ -39,15 +39,18 @@ export function fromSqlite(db: SqliteDatabase): Executor {
 
 /**
  * Replaces each `/*SLICE:name*\/?` left by sqlc.slice() with one placeholder per element,
- * numbered after the scalar parameters, and returns the matching flat parameter list. An
- * empty slice becomes NULL, so `IN (...)` matches nothing instead of failing to parse.
+ * numbered after the scalar parameters, and returns the matching flat parameter list.
+ * `scalars` comes grouped by the marker each group precedes (the generator emits the same
+ * call for every dialect); SQLite binds by number, so the groups just flatten. An empty
+ * slice becomes NULL, so `IN (...)` matches nothing instead of failing to parse.
  */
 export function expandSlices(
   query: string,
-  scalars: readonly unknown[],
+  scalars: readonly (readonly unknown[])[],
   slices: readonly (readonly unknown[])[],
 ): [string, unknown[]] {
-  let next = scalars.length + 1;
+  const flat = scalars.flat();
+  let next = flat.length + 1;
   let index = 0;
   const text = query.replace(/\/\*SLICE:\w+\*\/\?/g, () => {
     const slice = slices[index++];
@@ -61,5 +64,5 @@ export function expandSlices(
     next += slice.length;
     return slice.map((_, offset) => `?${first + offset}`).join(", ");
   });
-  return [text, [...scalars, ...slices.flat()]];
+  return [text, [...flat, ...slices.flat()]];
 }

@@ -79,7 +79,7 @@ export type PickTitlesRow = {
  * A slice inside the CTE still expands after the scalar that follows it.
  */
 export async function pickTitles(db: Executor, args: PickTitlesArgs): Promise<PickTitlesRow[]> {
-  const [query, values] = expandSlices(pickTitlesSql, [args.exclude], [args.ids]);
+  const [query, values] = expandSlices(pickTitlesSql, [[args.exclude], []], [args.ids]);
   const { rows } = await db(query, values);
   return rows.map((row: Row): PickTitlesRow => ({
     id: row.id as number,

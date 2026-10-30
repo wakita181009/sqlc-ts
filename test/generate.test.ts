@@ -60,7 +60,7 @@ describe("generate", () => {
 
     expect(problems(req)).toEqual([
       'titles.sql GetTitle: id: sqlc could not infer a type (got "anyarray"); add a cast such as ::text',
-      "titles.sql GetTitle: :batchexec is not supported; use :one, :many, :exec or :execrows",
+      "titles.sql GetTitle: :batchexec is not supported; use :one, :many, :exec, :execrows or :execlastid",
     ]);
   });
 
@@ -114,10 +114,10 @@ describe("generate", () => {
 
   it("rejects engines it has no dialect for", () => {
     const req = structuredClone(request);
-    req.settings.engine = "mysql";
+    req.settings.engine = "clickhouse";
 
     expect(problems(req)).toEqual([
-      'engine "mysql" is not supported; sqlc-ts knows postgresql, sqlite',
+      'engine "clickhouse" is not supported; sqlc-ts knows postgresql, sqlite, mysql',
     ]);
   });
 
@@ -127,6 +127,16 @@ describe("generate", () => {
     });
 
     expect(problems(req)[0]).toContain("sqlc.slice() is not supported");
+  });
+
+  it("rejects :execlastid where the runtime has no insert id", () => {
+    const req = withQuery("DeleteTitle", (q) => {
+      q.cmd = ":execlastid";
+    });
+
+    expect(problems(req)).toEqual([
+      "titles.sql DeleteTitle: :execlastid is not supported on postgresql; use RETURNING with :one",
+    ]);
   });
 
   it("rejects query names that camelCase to a JS reserved word", () => {
