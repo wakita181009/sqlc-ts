@@ -16,6 +16,10 @@ import {
   deleteViewsReturningCount,
   popularTitles,
 } from "../../fixture/postgres/gen/cte.ts";
+import {
+  getTitleWithView,
+  listTitlesWithViews,
+} from "../../fixture/postgres/gen/embed.ts";
 import type { Executor } from "../../fixture/postgres/gen/runtime.ts";
 import {
   createTitle,
@@ -139,5 +143,23 @@ describe.runIf(url)("generated postgres code against postgres.js", () => {
     expect(await copyViews(db, { toId: b, fromId: a })).toBe(2);
     const viewed = await viewedTitles(db);
     expect(viewed.filter((row) => row.id === b)).toHaveLength(2);
+  });
+
+  it("nests sqlc.embed() tables and nulls an embed the LEFT JOIN did not fill", async () => {
+    const [a, b] = await seed();
+    if (a === undefined || b === undefined) throw new Error("seed failed");
+
+    await recordView(db, { titleId: a });
+    const one = await getTitleWithView(db, { id: a });
+    const all = await listTitlesWithViews(db);
+
+    expect(one?.titles.name).toBe("a");
+    expect(one?.views.titleId).toBe(a);
+    expect(all.map((row) => [row.name, row.views?.titleId ?? null])).toEqual([
+      ["a", a],
+      ["b", null],
+      ["c", null],
+    ]);
+    expect(await getTitleWithView(db, { id: b })).toBeNull();
   });
 });

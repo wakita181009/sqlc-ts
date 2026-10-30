@@ -8,6 +8,8 @@ export const sqlite: Dialect = {
   runtime: new URL("./runtime.ts", import.meta.url),
   hasInsertId: false,
   namedParam: "@name",
+  quote: '"',
+  maxIdentifierBytes: Number.POSITIVE_INFINITY,
   resolveType,
   prepareQuery: prepareSqliteQuery,
 };

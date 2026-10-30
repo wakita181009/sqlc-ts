@@ -19,6 +19,10 @@ import {
   popularTitles,
 } from "../../fixture/mysql/gen/cte.ts";
 import {
+  getTitleWithView,
+  listTitlesWithViews,
+} from "../../fixture/mysql/gen/embed.ts";
+import {
   countMisc,
   createMisc,
   deleteAllMisc,
@@ -399,5 +403,23 @@ describe.runIf(url)("generated mysql code against mysql2", () => {
     ]);
     expect(picked.map((row) => row.name)).toEqual(["a", "c"]);
     expect(await pickTitles(db, { ids: [], exclude: "b" })).toEqual([]);
+  });
+
+  it("nests sqlc.embed() tables and nulls an embed the LEFT JOIN did not fill", async () => {
+    const [a, b] = await seed();
+    if (a === undefined || b === undefined) throw new Error("seed failed");
+
+    await recordView(db, { titleId: a });
+    const one = await getTitleWithView(db, { id: a });
+    const all = await listTitlesWithViews(db);
+
+    expect(one?.titles.name).toBe("a");
+    expect(one?.views.titleId).toBe(a);
+    expect(all.map((row) => [row.name, row.views?.titleId ?? null])).toEqual([
+      ["a", a],
+      ["b", null],
+      ["c", null],
+    ]);
+    expect(await getTitleWithView(db, { id: b })).toBeNull();
   });
 });
