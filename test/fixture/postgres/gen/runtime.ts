@@ -33,3 +33,96 @@ export function fromPostgresJs(sql: PostgresJsSql): Executor {
     return { rows, rowCount: rows.count };
   };
 }
+
+/** The part of a pg (node-postgres) Pool, Client or PoolClient the executor needs. */
+type PgQueryable = {
+  query(
+    text: string,
+    values?: unknown[],
+  ): Promise<{ rows: Row[]; rowCount: number | null }>;
+};
+
+/**
+ * pg parses types the way postgres.js does (int8 and numeric as strings, dates as Date,
+ * json parsed), so the generated types hold. A Neon serverless Pool or Client is
+ * pg-compatible and goes through here too.
+ */
+export function fromPg(client: PgQueryable): Executor {
+  return async (query, params) => {
+    const { rows, rowCount } = await client.query(query, [...params]);
+    return { rows, rowCount: rowCount ?? rows.length };
+  };
+}
+
+/** The part of a Neon serverless `neon()` query function the executor needs. */
+type NeonSql = {
+  query(
+    text: string,
+    params?: unknown[],
+    options?: { arrayMode?: boolean; fullResults?: boolean },
+  ): Promise<unknown>;
+};
+
+/**
+ * Neon's HTTP query function, from `neon(connectionString)`. The call asks for full results
+ * as objects whatever the function was created with, so the row count is there for
+ * :execrows. Types are parsed as pg parses them.
+ */
+export function fromNeon(sql: NeonSql): Executor {
+  return async (query, params) => {
+    const { rows, rowCount } = (await sql.query(query, [...params], {
+      arrayMode: false,
+      fullResults: true,
+    })) as { rows: Row[]; rowCount: number };
+    return { rows, rowCount };
+  };
+}
+
+/** The part of a PGlite instance (or a transaction's `tx`) the executor needs. */
+type PgliteDatabase = {
+  query(
+    query: string,
+    params?: unknown[],
+  ): Promise<{
+    rows: Row[];
+    fields: readonly { name: string; dataTypeID: number }[];
+    affectedRows?: number;
+  }>;
+};
+
+const PGLITE_INT8 = 20;
+const PGLITE_INT8_ARRAY = 1016;
+
+/**
+ * PGlite parses int8 to a number (or a bigint when it does not fit), where postgres.js and
+ * the generated types have a string; the executor converts those columns back, using the
+ * type ids PGlite reports for the result's fields. Everything else parses the same way.
+ */
+export function fromPglite(db: PgliteDatabase): Executor {
+  return async (query, params) => {
+    const result = await db.query(query, [...params]);
+    const int8 = result.fields.filter((f) => f.dataTypeID === PGLITE_INT8);
+    const int8Arrays = result.fields.filter(
+      (f) => f.dataTypeID === PGLITE_INT8_ARRAY,
+    );
+    const rows =
+      int8.length === 0 && int8Arrays.length === 0
+        ? result.rows
+        : result.rows.map((row) => {
+            const copy: Row = { ...row };
+            for (const { name } of int8) {
+              if (copy[name] != null) copy[name] = String(copy[name]);
+            }
+            for (const { name } of int8Arrays) {
+              const list = copy[name];
+              if (Array.isArray(list)) {
+                copy[name] = list.map((v) => (v == null ? v : String(v)));
+              }
+            }
+            return copy;
+          });
+    // A statement without a result set reports affectedRows; a SELECT reports 0 there.
+    const rowCount = rows.length > 0 ? rows.length : (result.affectedRows ?? 0);
+    return { rows, rowCount };
+  };
+}

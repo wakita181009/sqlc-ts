@@ -10,7 +10,7 @@ The analysis is done by [sqlc](https://sqlc.dev), the Go tool. sqlc parses your 
 - **Errors at generate time**: an unknown column, a wrong table, or a type mismatch fails generation, not your app at runtime.
 - **sqlc included**: `npm install` brings a pinned sqlc binary for your platform, so there is no Go toolchain or separate sqlc install.
 - **Plain SQL**: queries are `.sql` files with a `-- name:` comment, not a query builder or an ORM.
-- **PostgreSQL, SQLite and MySQL**: sqlc's `postgresql`, `sqlite` and `mysql` engines, each with its own type mapping and a small runtime adapter.
+- **PostgreSQL, SQLite and MySQL**: sqlc's `postgresql`, `sqlite` and `mysql` engines, each with its own type mapping and small runtime adapters: postgres.js, pg, PGlite and Neon; node:sqlite, better-sqlite3 and Cloudflare D1; mysql2.
 
 Unofficial, not affiliated with sqlc (and unrelated to the `sqlc-typescript` npm package or sqlc's own `sqlc-gen-typescript` plugin).
 
@@ -74,11 +74,24 @@ const user = await getUser(db, { id }); // GetUserRow | null
 ```
 
 ```ts
-// SQLite, with node:sqlite (better-sqlite3 has the same shape)
+// Postgres, with pg (node-postgres), PGlite or Neon
+import { PGlite } from "@electric-sql/pglite";
+import { neon } from "@neondatabase/serverless";
+import pg from "pg";
+import { fromNeon, fromPg, fromPglite } from "./gen/runtime";
+
+const db = fromPg(new pg.Pool({ connectionString: process.env.DATABASE_URL }));
+const local = fromPglite(new PGlite());
+const edge = fromNeon(neon(process.env.DATABASE_URL)); // a Neon Pool or Client goes through fromPg
+```
+
+```ts
+// SQLite, with node:sqlite (better-sqlite3 has the same shape) or Cloudflare D1
 import { DatabaseSync } from "node:sqlite";
-import { fromSqlite } from "./gen/runtime";
+import { fromD1, fromSqlite } from "./gen/runtime";
 
 const db = fromSqlite(new DatabaseSync("app.db"));
+const d1 = fromD1(env.DB);
 ```
 
 ```ts
@@ -127,13 +140,15 @@ sqlc's type inference is a reimplementation of Postgres', and it reads some null
 
 Matches postgres.js's default parsers: `int8` and `numeric` are strings (parameters also take number / bigint), `date` / `timestamp(tz)` are `Date`, `json(b)` is `JsonValue`, `bytea` is `Uint8Array`, enums are string unions, and types without a parser come back as their text, so `string`. Array elements are assumed non-null.
 
+pg and Neon parse the same way (pg returns `bytea` as a `Buffer`, which is a `Uint8Array`). PGlite parses `int8` to a number, so `fromPglite` turns `int8` columns and `int8[]` elements back into strings using the type ids in the result; its `date` is midnight UTC where postgres.js and pg use local midnight.
+
 `sqlc.slice()` is not available on Postgres (sqlc itself does not support it there); use `= ANY(@ids::bigint[])`.
 
 ### SQLite
 
 Follows SQLite's [type affinity](https://www.sqlite.org/datatype3.html) for the declared type: INTEGER affinity is `number` (parameters also take `bigint`), REAL is `number`, TEXT is `string`, BLOB is `Uint8Array`, and NUMERIC is `number | string` since SQLite keeps text that does not parse. `BOOLEAN` is `number` (parameters also take `boolean`), `DATE` / `DATETIME` / `TIMESTAMP` and `JSON` are `string`.
 
-Integers outside the safe range throw in node:sqlite and better-sqlite3 by default; turn on their bigint mode and cast if you store them.
+Integers outside the safe range throw in node:sqlite and better-sqlite3 by default; turn on their bigint mode and cast if you store them. D1 rounds them instead, and rejects `bigint` parameters, so `fromD1` binds those as numbers; it returns a BLOB as an array of bytes, which `fromD1` turns back into a `Uint8Array`.
 
 Alias expression columns (`count(*) AS count`, `EXISTS (...) AS found`). sqlc names an unaliased one `count` or `exists`, but SQLite returns it under its text (`count(*)`), so the generated row mapper would read `undefined`.
 
