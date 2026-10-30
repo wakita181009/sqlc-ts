@@ -11,6 +11,10 @@ import {
   popularTitles,
 } from "../../fixture/sqlite/gen/cte.ts";
 import {
+  getTitleWithView,
+  listTitlesWithViews,
+} from "../../fixture/sqlite/gen/embed.ts";
+import {
   countMisc,
   createMisc,
   getMisc,
@@ -147,6 +151,24 @@ describe("generated sqlite code against node:sqlite", () => {
 
     expect(stats).toHaveLength(3);
     expect(stats[0]).toEqual({ id: 1, views: 0, lastViewedAt: null });
+  });
+
+  it("nests sqlc.embed() tables and nulls an embed the LEFT JOIN did not fill", async () => {
+    const [a, b] = await seed();
+    if (a === undefined || b === undefined) throw new Error("seed failed");
+
+    await recordView(db, { titleId: a });
+    const one = await getTitleWithView(db, { id: a });
+    const all = await listTitlesWithViews(db);
+
+    expect(one?.titles.name).toBe("a");
+    expect(one?.views.titleId).toBe(a);
+    expect(all.map((row) => [row.name, row.views?.titleId ?? null])).toEqual([
+      ["a", a],
+      ["b", null],
+      ["c", null],
+    ]);
+    expect(await getTitleWithView(db, { id: b })).toBeNull();
   });
 });
 

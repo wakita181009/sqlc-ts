@@ -63,6 +63,7 @@ describe("main", () => {
 
     expect((await readdir(outDir)).sort()).toEqual([
       "cte.ts",
+      "embed.ts",
       "enums.ts",
       "misc.ts",
       "runtime.ts",
@@ -75,7 +76,7 @@ describe("main", () => {
     );
     expect(await readFile(join(outDir, "runtime.ts"), "utf8")).toBe(golden);
     expect(log).toHaveBeenCalledWith(
-      expect.stringContaining(`wrote 6 file(s) to ${outDir}`),
+      expect.stringContaining(`wrote 7 file(s) to ${outDir}`),
     );
   });
 
@@ -159,7 +160,7 @@ describe("main with sqlc", () => {
     expect(await sqlcArgs()).toBe("diff -f db/sqlc.yaml\n");
     expect(error).not.toHaveBeenCalled();
     expect(log).toHaveBeenCalledWith(
-      expect.stringContaining(`6 file(s) in ${outDir} are up to date`),
+      expect.stringContaining(`7 file(s) in ${outDir} are up to date`),
     );
   });
 
@@ -184,6 +185,7 @@ describe("main with sqlc", () => {
     );
     expect((await readdir(outDir)).sort()).toEqual([
       "cte.ts",
+      "embed.ts",
       "misc.ts",
       "old.ts",
       "runtime.ts",
@@ -195,7 +197,7 @@ describe("main with sqlc", () => {
   it("check reports every file missing when the output directory does not exist", async () => {
     expect(await main(["check", requestPath, outDir])).toBe(1);
     expect(error).toHaveBeenCalledWith(
-      expect.stringContaining("6 file(s) differ from the generated code"),
+      expect.stringContaining("7 file(s) differ from the generated code"),
     );
     await expect(readdir(outDir)).rejects.toThrow();
   });

@@ -92,6 +92,24 @@ const id = await createUser(db, { name }); // :execlastid, the AUTO_INCREMENT id
 
 Supported commands: `:one` (row or null), `:many`, `:exec`, `:execrows` (affected row count), and on MySQL `:execlastid` (the AUTO_INCREMENT id of the inserted row, since MySQL has no `RETURNING`). Column and parameter names become camelCase. Any object with the `Executor` shape works in place of the adapters, so a transaction handle or a pooled client can be passed the same way.
 
+## Embedding tables
+
+`sqlc.embed(table)` selects every column of a table and comes back as one nested object, typed after the table:
+
+```sql
+-- @nullable views
+-- name: ListTitlesWithViews :many
+SELECT titles.id, titles.name, sqlc.embed(v)
+FROM titles LEFT JOIN views AS v ON v.title_id = titles.id;
+```
+
+```ts
+export type Views = { titleId: string; viewedAt: Date };
+export type ListTitlesWithViewsRow = { id: string; name: string; views: Views | null };
+```
+
+Drivers return rows as objects keyed by column name, so two embedded tables with an `id` column would overwrite each other; sqlc-ts aliases every embedded column (`v.title_id AS "views.title_id"`) in the SQL it emits, and the mapper reads them back. sqlc marks the embed itself nullable whatever the join; `@nullable views` is what makes it `Views | null`, which the generated code returns when every column of the embed is NULL, as after a `LEFT JOIN` that matched nothing. The type is named after the table (`views` → `Views`) and declared once per generated file.
+
 ## Overriding nullability
 
 sqlc's type inference is a reimplementation of Postgres', and it reads some nullable expressions as NOT NULL: every cast (`max(x)::timestamptz`) and columns from a `LEFT JOIN LATERAL`. Mark those above the query:

@@ -28,6 +28,10 @@ export type Dialect = {
   hasInsertId: boolean;
   /** How to name a parameter in this engine's SQL, for error messages: `@name`, `sqlc.arg(name)`. */
   namedParam: string;
+  /** The character that quotes an identifier: `"` or a backtick. */
+  quote: string;
+  /** Longest identifier the engine keeps; Postgres silently truncates beyond 63 bytes. */
+  maxIdentifierBytes: number;
   resolveType(
     column: Column,
     role: "output" | "param",

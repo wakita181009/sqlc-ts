@@ -8,6 +8,8 @@ export const mysql: Dialect = {
   runtime: new URL("./runtime.ts", import.meta.url),
   hasInsertId: true,
   namedParam: "sqlc.arg(name)",
+  quote: "`",
+  maxIdentifierBytes: 256,
   resolveType,
   prepareQuery: prepareMysqlQuery,
 };

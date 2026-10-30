@@ -65965,6 +65965,193 @@
       }
     },
     {
+      "text": "SELECT titles.id, titles.name, titles.status, titles.tags, titles.price, titles.meta, titles.poster, titles.rating, titles.published_on, titles.created_at, views.title_id, views.viewed_at\nFROM titles JOIN views ON views.title_id = titles.id\nWHERE titles.id = $1\nORDER BY views.viewed_at DESC LIMIT 1",
+      "name": "GetTitleWithView",
+      "cmd": ":one",
+      "columns": [
+        {
+          "name": "titles",
+          "not_null": false,
+          "is_array": false,
+          "comment": "",
+          "length": -1,
+          "is_named_param": false,
+          "is_func_call": false,
+          "scope": "",
+          "table": null,
+          "table_alias": "",
+          "type": {
+            "catalog": "",
+            "schema": "",
+            "name": ""
+          },
+          "is_sqlc_slice": false,
+          "embed_table": {
+            "catalog": "",
+            "schema": "",
+            "name": "titles"
+          },
+          "original_name": "",
+          "unsigned": false,
+          "array_dims": 0
+        },
+        {
+          "name": "views",
+          "not_null": false,
+          "is_array": false,
+          "comment": "",
+          "length": -1,
+          "is_named_param": false,
+          "is_func_call": false,
+          "scope": "",
+          "table": null,
+          "table_alias": "",
+          "type": {
+            "catalog": "",
+            "schema": "",
+            "name": ""
+          },
+          "is_sqlc_slice": false,
+          "embed_table": {
+            "catalog": "",
+            "schema": "",
+            "name": "views"
+          },
+          "original_name": "",
+          "unsigned": false,
+          "array_dims": 0
+        }
+      ],
+      "params": [
+        {
+          "number": 1,
+          "column": {
+            "name": "id",
+            "not_null": true,
+            "is_array": false,
+            "comment": "",
+            "length": -1,
+            "is_named_param": true,
+            "is_func_call": false,
+            "scope": "",
+            "table": {
+              "catalog": "",
+              "schema": "",
+              "name": "titles"
+            },
+            "table_alias": "",
+            "type": {
+              "catalog": "",
+              "schema": "",
+              "name": "bigserial"
+            },
+            "is_sqlc_slice": false,
+            "embed_table": null,
+            "original_name": "id",
+            "unsigned": false,
+            "array_dims": 0
+          }
+        }
+      ],
+      "comments": [
+        " A title with its latest view; sqlc.embed() nests each table's columns."
+      ],
+      "filename": "embed.sql",
+      "insert_into_table": null
+    },
+    {
+      "text": "SELECT titles.id, titles.name, v.title_id, v.viewed_at\nFROM titles LEFT JOIN views AS v ON v.title_id = titles.id\nORDER BY titles.id, v.viewed_at",
+      "name": "ListTitlesWithViews",
+      "cmd": ":many",
+      "columns": [
+        {
+          "name": "id",
+          "not_null": true,
+          "is_array": false,
+          "comment": "",
+          "length": -1,
+          "is_named_param": false,
+          "is_func_call": false,
+          "scope": "",
+          "table": {
+            "catalog": "",
+            "schema": "",
+            "name": "titles"
+          },
+          "table_alias": "",
+          "type": {
+            "catalog": "",
+            "schema": "",
+            "name": "bigserial"
+          },
+          "is_sqlc_slice": false,
+          "embed_table": null,
+          "original_name": "id",
+          "unsigned": false,
+          "array_dims": 0
+        },
+        {
+          "name": "name",
+          "not_null": true,
+          "is_array": false,
+          "comment": "",
+          "length": -1,
+          "is_named_param": false,
+          "is_func_call": false,
+          "scope": "",
+          "table": {
+            "catalog": "",
+            "schema": "",
+            "name": "titles"
+          },
+          "table_alias": "",
+          "type": {
+            "catalog": "",
+            "schema": "",
+            "name": "text"
+          },
+          "is_sqlc_slice": false,
+          "embed_table": null,
+          "original_name": "name",
+          "unsigned": false,
+          "array_dims": 0
+        },
+        {
+          "name": "views",
+          "not_null": false,
+          "is_array": false,
+          "comment": "",
+          "length": -1,
+          "is_named_param": false,
+          "is_func_call": false,
+          "scope": "",
+          "table": null,
+          "table_alias": "",
+          "type": {
+            "catalog": "",
+            "schema": "",
+            "name": ""
+          },
+          "is_sqlc_slice": false,
+          "embed_table": {
+            "catalog": "",
+            "schema": "",
+            "name": "views"
+          },
+          "original_name": "",
+          "unsigned": false,
+          "array_dims": 0
+        }
+      ],
+      "params": [],
+      "comments": [
+        " The embed is marked @nullable because the LEFT JOIN can leave every views column NULL.",
+        " @nullable views"
+      ],
+      "filename": "embed.sql",
+      "insert_into_table": null
+    },
+    {
       "text": "SELECT id, small, medium, precise, flag, at_local, at_time, span, doc, fixed, label, prices, grid, address_line1 FROM misc WHERE id = $1",
       "name": "GetMisc",
       "cmd": ":one",

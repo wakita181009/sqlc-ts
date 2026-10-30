@@ -215,6 +215,110 @@ describe("generate", () => {
   });
 });
 
+describe("sqlc.embed()", () => {
+  it("nests the table's columns under a type named after it and aliases them in the SQL", () => {
+    const embed = generate(request).find((f) => f.path === "embed.ts");
+
+    expect(embed?.contents).toContain(
+      "export type Views = {\n  titleId: string;",
+    );
+    expect(embed?.contents).toContain("titles: Titles;\n  views: Views;");
+    expect(embed?.contents).toContain("views: Views | null;");
+    expect(embed?.contents).toContain(
+      'titles.id AS "titles.id", titles.name AS "titles.name"',
+    );
+    expect(embed?.contents).toContain('v.title_id AS "views.title_id"');
+    expect(embed?.contents).toContain(
+      'titleId: row["views.title_id"] as string',
+    );
+  });
+
+  it("reports a table missing from the catalog or an expansion missing from the text", () => {
+    const missing = withQuery("GetTitleWithView", (q) => {
+      if (q.columns[0]?.embed_table) q.columns[0].embed_table.name = "nope";
+    });
+    const rewritten = withQuery("GetTitleWithView", (q) => {
+      q.text = "SELECT 1";
+    });
+
+    expect(problems(missing)).toEqual([
+      "embed.sql GetTitleWithView: sqlc.embed(nope): table not found in the catalog",
+    ]);
+    expect(problems(rewritten)).toEqual([
+      "embed.sql GetTitleWithView: sqlc.embed(titles): could not find its expanded columns in the query text",
+      "embed.sql GetTitleWithView: sqlc.embed(views): could not find its expanded columns in the query text",
+    ]);
+  });
+
+  it("refuses to guess when the same columns are also selected by hand", () => {
+    const req = withQuery("ListTitlesWithViews", (q) => {
+      q.text = q.text.replace(
+        "SELECT titles.id, titles.name,",
+        "SELECT x.title_id, x.viewed_at,",
+      );
+    });
+
+    expect(problems(req)).toEqual([
+      "embed.sql ListTitlesWithViews: sqlc.embed(views): the query also selects the same columns explicitly, so the embed cannot be told apart; alias those columns",
+    ]);
+  });
+
+  it("does not match a column list that only starts with the table's columns", () => {
+    const req = withQuery("ListTitlesWithViews", (q) => {
+      q.text = q.text.replace(
+        "SELECT titles.id, titles.name,",
+        "SELECT x.title_id, x.viewed_at_local,",
+      );
+    });
+    const embed = generate(req).find((f) => f.path === "embed.ts");
+
+    expect(embed?.contents).toContain(
+      'SELECT x.title_id, x.viewed_at_local, v.title_id AS "views.title_id"',
+    );
+  });
+
+  it("refuses a table whose type name the generated file already uses", () => {
+    const req = structuredClone(request);
+    const table = req.catalog.schemas
+      .find((s) => s.name === "public")
+      ?.tables?.find((t) => t.rel.name === "views");
+    if (!table) throw new Error("no views table");
+    table.rel.name = "row";
+    const query = req.queries.find((q) => q.name === "GetTitleWithView");
+    if (!query?.columns[1]?.embed_table) throw new Error("no embed");
+    query.columns[1].embed_table.name = "row";
+    query.text = query.text.replaceAll("views.", "row.");
+
+    expect(problems(req)).toContain(
+      "embed.sql GetTitleWithView: sqlc.embed(row): its type would be named Row, which the generated file already uses",
+    );
+  });
+
+  it("refuses an alias Postgres would truncate", () => {
+    const req = structuredClone(request);
+    const column = req.catalog.schemas
+      .find((s) => s.name === "public")
+      ?.tables?.find((t) => t.rel.name === "views")?.columns[0];
+    if (!column) throw new Error("no views table");
+    column.name = "x".repeat(60);
+
+    expect(problems(req)[0]).toContain(
+      "longer than the 63 bytes postgresql keeps",
+    );
+  });
+
+  it("refuses to alias a column whose name contains the quote character", () => {
+    const req = structuredClone(request);
+    const column = req.catalog.schemas
+      .find((s) => s.name === "public")
+      ?.tables?.find((t) => t.rel.name === "views")?.columns[0];
+    if (!column) throw new Error("no views table");
+    column.name = 'odd"name';
+
+    expect(problems(req)[0]).toContain('cannot alias "views.odd"name"');
+  });
+});
+
 describe("names", () => {
   it("converts snake_case and PascalCase", () => {
     expect(camelCase("last_used_at")).toBe("lastUsedAt");

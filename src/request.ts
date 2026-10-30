@@ -51,9 +51,20 @@ export type Enum = {
   vals: string[];
 };
 
+export type Table = {
+  rel: Identifier;
+  columns: Column[];
+};
+
 export type Schema = {
   name: string;
+  tables: Table[] | null;
   enums: Enum[] | null;
+};
+
+export type Catalog = {
+  default_schema: string;
+  schemas: Schema[];
 };
 
 export type GenerateRequest = {
@@ -62,9 +73,6 @@ export type GenerateRequest = {
     /** `postgresql`, `sqlite` or `mysql`. */
     engine: string;
   };
-  catalog: {
-    default_schema: string;
-    schemas: Schema[];
-  };
+  catalog: Catalog;
   queries: Query[];
 };

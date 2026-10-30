@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
 import type { Bind, Dialect, EnumTypes } from "./dialects/dialect.ts";
 import { pickDialect, supportedEngines } from "./dialects/index.ts";
-import type { Column, GenerateRequest, Query } from "./request.ts";
+import { applyEmbeds, type Embed } from "./embed.ts";
+import type { Catalog, Column, GenerateRequest, Query } from "./request.ts";
 
 export type GeneratedFile = { path: string; contents: string };
 
@@ -74,10 +75,28 @@ const RESERVED_WORDS = new Set([
   "yield",
 ]);
 
-type Field = { key: string; column: string; ts: string; nullable: boolean };
+type Field = {
+  key: string;
+  column: string;
+  ts: string;
+  nullable: boolean;
+  /** Set for a `sqlc.embed()` column: the table's columns, read from their aliases. */
+  embed?: readonly Field[];
+};
 
-/** What a generated file has to import: types from enums and runtime, values from runtime. */
-type Used = { enums: Set<string>; runtime: Set<string>; helpers: Set<string> };
+/**
+ * What a generated file has to import (types from enums and runtime, values from runtime)
+ * and declare: one type per embedded table, by name.
+ */
+type Used = {
+  enums: Set<string>;
+  runtime: Set<string>;
+  helpers: Set<string>;
+  embeds: Map<string, string>;
+};
+
+/** Names a file already uses, which an embedded table's type must not shadow. */
+const RUNTIME_TYPES = new Set(["Executor", "Row", "JsonValue"]);
 
 type Directives = {
   nullable: Set<string>;
@@ -118,10 +137,16 @@ export function generate(request: GenerateRequest): GeneratedFile[] {
       enums: new Set(),
       runtime: new Set(["Executor"]),
       helpers: new Set(),
+      embeds: new Map(),
     };
     const blocks = queries.map((query) =>
-      renderQuery(query, dialect, enums.types, used, (problem) =>
-        problems.push(`${filename} ${query.name}: ${problem}`),
+      renderQuery(
+        query,
+        request.catalog,
+        dialect,
+        enums.types,
+        used,
+        (problem) => problems.push(`${filename} ${query.name}: ${problem}`),
       ),
     );
     files.push({
@@ -167,6 +192,7 @@ function collectEnums(
 
 function renderQuery(
   query: Query,
+  catalog: Catalog,
   dialect: Dialect,
   enums: EnumTypes,
   used: Used,
@@ -197,19 +223,32 @@ function renderQuery(
     return resolved.ts;
   };
 
+  const embedded = applyEmbeds(query, catalog, dialect, report);
+  const nullability = (column: Column) =>
+    directives.nullable.has(column.name)
+      ? true
+      : directives.notNull.has(column.name)
+        ? false
+        : !column.not_null;
   const columns = toFields(
     query.columns,
     "column",
     dialect,
     report,
-    (column) => ({
-      ts: resolve(column, "output"),
-      nullable: directives.nullable.has(column.name)
-        ? true
-        : directives.notNull.has(column.name)
-          ? false
-          : !column.not_null,
-    }),
+    (column, index) => {
+      const embed = embedded.embeds.get(index);
+      // An embed that applyEmbeds already reported has no type to resolve.
+      if (!embed && column.embed_table)
+        return { ts: "unknown", nullable: true };
+      if (!embed)
+        return { ts: resolve(column, "output"), nullable: nullability(column) };
+      return {
+        ts: embedType(embed, enums, used, dialect, resolve, report),
+        // sqlc marks every embed nullable; the join decides, so only @nullable makes it so.
+        nullable: directives.nullable.has(column.name),
+        embed: embedFields(embed, dialect, resolve, report),
+      };
+    },
   );
   for (const name of [...directives.nullable, ...directives.notNull]) {
     if (!query.columns.some((column) => column.name === name)) {
@@ -219,7 +258,10 @@ function renderQuery(
     }
   }
 
-  const prepared = dialect.prepareQuery(query, report);
+  const prepared = dialect.prepareQuery(
+    { ...query, text: embedded.text },
+    report,
+  );
   const params = toFields(
     prepared.params,
     "parameter",
@@ -367,10 +409,10 @@ function toFields(
   kind: "column" | "parameter",
   dialect: Dialect,
   report: (problem: string) => void,
-  describe: (column: Column) => { ts: string; nullable: boolean },
+  describe: (column: Column, index: number) => Omit<Field, "key" | "column">,
 ): Field[] {
   const seen = new Set<string>();
-  return columns.map((column) => {
+  return columns.map((column, index) => {
     const key = camelCase(column.name);
     if (!IDENTIFIER.test(key)) {
       report(
@@ -390,8 +432,58 @@ function toFields(
       );
     }
     seen.add(key);
-    return { key, column: column.name, ...describe(column) };
+    return { key, column: column.name, ...describe(column, index) };
   });
+}
+
+type Resolve = (column: Column, role: "output" | "param") => string;
+
+/** The embedded table's columns as fields, each read from the alias the SELECT gives it. */
+function embedFields(
+  embed: Embed,
+  dialect: Dialect,
+  resolve: Resolve,
+  report: (problem: string) => void,
+): Field[] {
+  const fields = toFields(
+    embed.columns.map(({ column }) => column),
+    "column",
+    dialect,
+    (problem) => report(`${embed.name}: ${problem}`),
+    (column) => ({ ts: resolve(column, "output"), nullable: !column.not_null }),
+  );
+  return fields.map((field, i) => ({
+    ...field,
+    column: embed.columns[i]?.alias ?? field.column,
+  }));
+}
+
+/**
+ * Declares (once per file) and names the type of an embedded table's row: the table name
+ * in PascalCase, as sqlc's own generators name their models.
+ */
+function embedType(
+  embed: Embed,
+  enums: EnumTypes,
+  used: Used,
+  dialect: Dialect,
+  resolve: Resolve,
+  report: (problem: string) => void,
+): string {
+  const tsName = pascalCase(embed.table.rel.name);
+  if (RUNTIME_TYPES.has(tsName) || [...enums.values()].includes(tsName)) {
+    report(
+      `sqlc.embed(${embed.table.rel.name}): its type would be named ${tsName}, which the generated file already uses`,
+    );
+    return "unknown";
+  }
+  if (!used.embeds.has(tsName)) {
+    used.embeds.set(
+      tsName,
+      `export type ${tsName} = ${objectType(embedFields(embed, dialect, resolve, report))};\n`,
+    );
+  }
+  return tsName;
 }
 
 /**
@@ -451,7 +543,8 @@ function renderFile(
     importLine(used.enums, "./enums") +
     importLine(used.runtime, "./runtime") +
     importLine(used.helpers, "./runtime", "");
-  return `${header(filename, sqlcVersion)}\n${imports}\n${blocks.join("\n")}`;
+  const embeds = [...used.embeds.values()];
+  return `${header(filename, sqlcVersion)}\n${imports}\n${[...embeds, ...blocks].join("\n")}`;
 }
 
 export function header(source: string, sqlcVersion: string): string {
@@ -465,15 +558,26 @@ function objectType(fields: readonly Field[]): string {
   return `{\n${lines.join("\n")}\n}`;
 }
 
-function rowMapper(fields: readonly Field[]): string {
+function rowMapper(fields: readonly Field[], indent = "    "): string {
   const lines = fields.map((field) => {
-    const access = IDENTIFIER.test(field.column)
-      ? `row.${field.column}`
-      : `row[${JSON.stringify(field.column)}]`;
+    if (field.embed) {
+      const nested = rowMapper(field.embed, `${indent}  `);
+      // A LEFT JOIN that matched nothing leaves every embedded column NULL.
+      const value = field.nullable
+        ? `[${field.embed.map((f) => access(f)).join(", ")}].every((v) => v === null) ? null : ${nested}`
+        : nested;
+      return `${indent}${field.key}: ${value},`;
+    }
     const ts = field.nullable ? `${field.ts} | null` : field.ts;
-    return `    ${field.key}: ${access} as ${ts},`;
+    return `${indent}${field.key}: ${access(field)} as ${ts},`;
   });
-  return `{\n${lines.join("\n")}\n  }`;
+  return `{\n${lines.join("\n")}\n${indent.slice(2)}}`;
+}
+
+function access(field: Field): string {
+  return IDENTIFIER.test(field.column)
+    ? `row.${field.column}`
+    : `row[${JSON.stringify(field.column)}]`;
 }
 
 function jsdoc(lines: readonly string[]): string {

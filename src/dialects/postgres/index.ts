@@ -8,6 +8,8 @@ export const postgres: Dialect = {
   runtime: new URL("./runtime.ts", import.meta.url),
   hasInsertId: false,
   namedParam: "@name",
+  quote: '"',
+  maxIdentifierBytes: 63,
   resolveType,
   prepareQuery(query, report) {
     if (query.params.some((param) => param.column.is_sqlc_slice)) {
