@@ -9,10 +9,8 @@ import {
   it,
   vi,
 } from "vitest";
-import {
-  expandSlices,
-  fromMysql2,
-} from "../../../src/dialects/mysql/runtime.ts";
+import { fromMysql2 } from "../../../src/dialects/mysql/adapters/mysql2.ts";
+import { expandSlices } from "../../../src/dialects/mysql/runtime.ts";
 import {
   countdown,
   pickTitles,

@@ -2,11 +2,9 @@ import { readFileSync } from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import {
-  fromNeon,
-  fromPg,
-  fromPglite,
-} from "../../../src/dialects/postgres/runtime.ts";
+import { fromNeon } from "../../../src/dialects/postgres/adapters/neon.ts";
+import { fromPg } from "../../../src/dialects/postgres/adapters/pg.ts";
+import { fromPglite } from "../../../src/dialects/postgres/adapters/pglite.ts";
 import { deleteViewsReturningCount } from "../../fixture/postgres/gen/cte.ts";
 import type { Executor } from "../../fixture/postgres/gen/runtime.ts";
 import {

@@ -1,9 +1,10 @@
 import { existsSync } from "node:fs";
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { parseArgs } from "node:util";
 import {
+  ADAPTERS_DIR,
   GENERATED_MARKER,
   type GeneratedFile,
   GenerateError,
@@ -136,7 +137,9 @@ export async function main(args: readonly string[]): Promise<number> {
   // hand-written in the directory alone.
   for (const path of await staleFiles(outDir, written)) await rm(path);
   for (const file of files) {
-    await writeFile(join(outDir, file.path), file.contents);
+    const path = join(outDir, file.path);
+    await mkdir(dirname(path), { recursive: true });
+    await writeFile(path, file.contents);
   }
   console.log(`sqlc-ts: wrote ${files.length} file(s) to ${outDir}`);
   return 0;
@@ -148,11 +151,20 @@ async function staleFiles(
   current: ReadonlySet<string>,
 ): Promise<string[]> {
   const stale = [];
-  for (const entry of await readdir(outDir)) {
-    if (current.has(entry) || !entry.endsWith(".ts")) continue;
-    const path = join(outDir, entry);
-    if ((await readFile(path, "utf8")).startsWith(GENERATED_MARKER)) {
-      stale.push(path);
+  // Only where sqlc-ts writes: the directory itself and adapters/. Anything deeper may be
+  // another package's output (`out: gen` next to `out: gen/admin`) and is not touched.
+  for (const dir of ["", ADAPTERS_DIR]) {
+    const entries = existsSync(join(outDir, dir))
+      ? await readdir(join(outDir, dir), { withFileTypes: true })
+      : [];
+    for (const entry of entries) {
+      const relative = dir ? `${dir}/${entry.name}` : entry.name;
+      if (!entry.isFile() || current.has(relative)) continue;
+      if (!relative.endsWith(".ts")) continue;
+      const path = join(outDir, dir, entry.name);
+      if ((await readFile(path, "utf8")).startsWith(GENERATED_MARKER)) {
+        stale.push(path);
+      }
     }
   }
   return stale;

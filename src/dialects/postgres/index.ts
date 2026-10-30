@@ -6,6 +6,7 @@ export const postgres: Dialect = {
   engine: "postgresql",
   systemSchemas: new Set(["pg_catalog", "information_schema", "pg_temp"]),
   runtime: new URL("./runtime.ts", import.meta.url),
+  adapters: new URL("./adapters/", import.meta.url),
   hasInsertId: false,
   namedParam: "@name",
   quote: '"',

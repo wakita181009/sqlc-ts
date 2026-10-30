@@ -31,7 +31,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "rm -rf dist && tsc -p tsconfig.build.json && for d in postgres sqlite mysql; do cp src/dialects/$d/runtime.ts dist/dialects/$d/; done",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json && for d in postgres sqlite mysql; do cp src/dialects/$d/runtime.ts dist/dialects/$d/ && rm -rf dist/dialects/$d/adapters && cp -r src/dialects/$d/adapters dist/dialects/$d/; done",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",

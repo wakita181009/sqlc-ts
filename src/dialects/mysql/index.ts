@@ -6,6 +6,7 @@ export const mysql: Dialect = {
   engine: "mysql",
   systemSchemas: new Set(),
   runtime: new URL("./runtime.ts", import.meta.url),
+  adapters: new URL("./adapters/", import.meta.url),
   hasInsertId: true,
   namedParam: "sqlc.arg(name)",
   quote: "`",

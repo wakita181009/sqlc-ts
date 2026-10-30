@@ -30,7 +30,9 @@ describe.each(["postgres", "sqlite", "mysql"])(
       const dir = fileURLToPath(
         new URL(`./fixture/${dialect}/gen/`, import.meta.url),
       );
-      const files = readdirSync(dir).map((name) => dir + name);
+      const files = readdirSync(dir, { recursive: true, encoding: "utf8" })
+        .filter((name) => name.endsWith(".ts"))
+        .map((name) => dir + name);
       const tsc = spawnSync(TSC, [...STRICT_FLAGS, ...files], {
         encoding: "utf8",
       });

@@ -1,5 +1,6 @@
 import {
   chmod,
+  mkdir,
   mkdtemp,
   readdir,
   readFile,
@@ -62,6 +63,7 @@ describe("main", () => {
     expect(await main([requestPath, outDir])).toBe(0);
 
     expect((await readdir(outDir)).sort()).toEqual([
+      "adapters",
       "cte.ts",
       "embed.ts",
       "enums.ts",
@@ -76,7 +78,7 @@ describe("main", () => {
     );
     expect(await readFile(join(outDir, "runtime.ts"), "utf8")).toBe(golden);
     expect(log).toHaveBeenCalledWith(
-      expect.stringContaining(`wrote 7 file(s) to ${outDir}`),
+      expect.stringContaining(`wrote 11 file(s) to ${outDir}`),
     );
   });
 
@@ -85,6 +87,17 @@ describe("main", () => {
     await writeFile(join(outDir, "old.ts"), `${GENERATED_MARKER}\nold`);
     await writeFile(join(outDir, "mine.ts"), "export const mine = 1;");
     await writeFile(join(outDir, "notes.md"), `${GENERATED_MARKER}`);
+    await writeFile(
+      join(outDir, "adapters", "old.ts"),
+      `${GENERATED_MARKER}\nold adapter`,
+    );
+    await writeFile(join(outDir, "adapters", "mine.ts"), "export const x = 1;");
+    // Another package's output below this one, and a directory named like a file.
+    await mkdir(join(outDir, "admin", "deep.ts"), { recursive: true });
+    await writeFile(
+      join(outDir, "admin", "users.ts"),
+      `${GENERATED_MARKER}\nx`,
+    );
 
     await main([requestPath, outDir]);
 
@@ -93,6 +106,17 @@ describe("main", () => {
     expect(entries).toEqual(
       expect.arrayContaining(["mine.ts", "notes.md", "titles.ts"]),
     );
+    expect((await readdir(join(outDir, "adapters"))).sort()).toEqual([
+      "mine.ts",
+      "neon.ts",
+      "pg.ts",
+      "pglite.ts",
+      "postgres-js.ts",
+    ]);
+    expect((await readdir(join(outDir, "admin"))).sort()).toEqual([
+      "deep.ts",
+      "users.ts",
+    ]);
   });
 
   it("lists generation problems and exits 1", async () => {
@@ -160,7 +184,7 @@ describe("main with sqlc", () => {
     expect(await sqlcArgs()).toBe("diff -f db/sqlc.yaml\n");
     expect(error).not.toHaveBeenCalled();
     expect(log).toHaveBeenCalledWith(
-      expect.stringContaining(`7 file(s) in ${outDir} are up to date`),
+      expect.stringContaining(`11 file(s) in ${outDir} are up to date`),
     );
   });
 
@@ -184,6 +208,7 @@ describe("main with sqlc", () => {
       `  no longer generated: ${join(outDir, "old.ts")}`,
     );
     expect((await readdir(outDir)).sort()).toEqual([
+      "adapters",
       "cte.ts",
       "embed.ts",
       "misc.ts",
@@ -197,7 +222,7 @@ describe("main with sqlc", () => {
   it("check reports every file missing when the output directory does not exist", async () => {
     expect(await main(["check", requestPath, outDir])).toBe(1);
     expect(error).toHaveBeenCalledWith(
-      expect.stringContaining("7 file(s) differ from the generated code"),
+      expect.stringContaining("11 file(s) differ from the generated code"),
     );
     await expect(readdir(outDir)).rejects.toThrow();
   });
