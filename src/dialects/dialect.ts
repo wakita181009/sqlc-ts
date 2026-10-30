@@ -36,6 +36,15 @@ export type Dialect = {
   prepareQuery(query: Query, report: (problem: string) => void): PreparedQuery;
 };
 
+/** What a dialect has to spell out; the rest has the defaults of `defineDialect`. */
+export type DialectSpec = Omit<Dialect, "hasInsertId" | "namedParam"> &
+  Partial<Pick<Dialect, "hasInsertId" | "namedParam">>;
+
+/** Fills in what most engines share: no insert id from the executor, `@name` parameters. */
+export function defineDialect(spec: DialectSpec): Dialect {
+  return { hasInsertId: false, namedParam: "@name", ...spec };
+}
+
 /** sqlc's parameters in the order it numbered them. */
 export function paramsByNumber(query: Query): Column[] {
   return [...query.params]
