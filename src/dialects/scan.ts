@@ -14,6 +14,8 @@ export type ScanOptions = {
   dashCommentNeedsSpace: boolean;
   /** `[name]` is a quoted identifier (SQLite). */
   bracketIdentifiers: boolean;
+  /** Report `@name` (MySQL, where sqlc leaves it in the text as a session variable). */
+  sessionVariables: boolean;
 };
 
 const SLICE = /^\/\*SLICE:(\w+)\*\/\?/;
@@ -65,12 +67,12 @@ export function scanPlaceholders(
       }
       continue;
     }
-    const system = SYSTEM_VARIABLE.exec(rest);
+    const system = options.sessionVariables && SYSTEM_VARIABLE.exec(rest);
     if (system) {
       i += system[0].length;
       continue;
     }
-    const variable = VARIABLE.exec(rest);
+    const variable = options.sessionVariables && VARIABLE.exec(rest);
     if (variable) {
       found.push({
         kind: "variable",
@@ -101,7 +103,7 @@ function skipNonCode(rest: string, options: ScanOptions): number {
     rest.startsWith("--") &&
     (!options.dashCommentNeedsSpace ||
       rest.length === 2 ||
-      /\s/.test(rest[2] ?? ""));
+      /\s/.test(rest.charAt(2)));
   if (dashComment || (options.hashComments && first === "#")) {
     return rest.indexOf("\n") === -1 ? rest.length : rest.indexOf("\n");
   }

@@ -100,9 +100,13 @@ describe("expandSlices", () => {
     ]);
   });
 
+  it("passes a query without markers through", () => {
+    expect(expandSlices("x = ?", [["a"]], [])).toEqual(["x = ?", ["a"]]);
+  });
+
   it("throws when the slices or scalar groups do not match the markers", () => {
     expect(() => expandSlices("x IN (/*SLICE:x*/?)", [[]], [])).toThrow(
-      "0 slice(s) given",
+      "0 slice(s) and 1 scalar group(s) given for a query with 1 marker(s)",
     );
     expect(() =>
       expandSlices("x IN (/*SLICE:x*/?)", [[], []], [[1], [2]]),

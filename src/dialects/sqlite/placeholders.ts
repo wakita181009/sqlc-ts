@@ -7,6 +7,7 @@ const SQLITE_SCAN: ScanOptions = {
   hashComments: false,
   dashCommentNeedsSpace: false,
   bracketIdentifiers: true,
+  sessionVariables: false,
 };
 
 /**
@@ -36,7 +37,6 @@ export function prepareSqliteQuery(
   const pieces: string[] = [];
   let cursor = 0;
   for (const placeholder of scanPlaceholders(query.text, SQLITE_SCAN)) {
-    if (placeholder.kind === "variable") continue;
     pieces.push(query.text.slice(cursor, placeholder.start));
     cursor = placeholder.end;
     if (placeholder.kind === "slice") {

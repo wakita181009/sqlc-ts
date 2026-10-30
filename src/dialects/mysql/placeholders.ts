@@ -8,6 +8,7 @@ const MYSQL_SCAN: ScanOptions = {
   hashComments: true,
   dashCommentNeedsSpace: true,
   bracketIdentifiers: false,
+  sessionVariables: true,
 };
 
 /**

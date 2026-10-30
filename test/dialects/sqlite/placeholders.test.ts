@@ -9,6 +9,7 @@ const scan = (sql: string) =>
     hashComments: false,
     dashCommentNeedsSpace: false,
     bracketIdentifiers: true,
+    sessionVariables: false,
   });
 
 function column(type: string): Column {
@@ -57,6 +58,12 @@ describe("sqlite placeholders", () => {
       "anonymous",
       "numbered",
       "slice",
+    ]);
+  });
+
+  it("leaves @name alone where sqlc has already rewritten it", () => {
+    expect(scan("SELECT @x FROM t WHERE a = ?")).toEqual([
+      { kind: "anonymous", start: 27, end: 28 },
     ]);
   });
 

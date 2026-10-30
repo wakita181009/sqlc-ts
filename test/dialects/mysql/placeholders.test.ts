@@ -60,6 +60,7 @@ describe("mysql scanning", () => {
         hashComments: true,
         dashCommentNeedsSpace: true,
         bracketIdentifiers: false,
+        sessionVariables: true,
       }).map((p) => p.kind),
     ).toEqual(["anonymous", "slice"]);
   });
@@ -70,6 +71,7 @@ describe("mysql scanning", () => {
       hashComments: true,
       dashCommentNeedsSpace: true,
       bracketIdentifiers: false,
+      sessionVariables: true,
     };
 
     expect(scanPlaceholders("SELECT n--? AS x", options)).toHaveLength(1);
@@ -85,6 +87,7 @@ describe("mysql scanning", () => {
         hashComments: true,
         dashCommentNeedsSpace: true,
         bracketIdentifiers: false,
+        sessionVariables: true,
       },
     );
 

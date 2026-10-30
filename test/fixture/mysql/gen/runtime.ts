@@ -14,6 +14,8 @@ export type Executor = (
   params: readonly unknown[],
 ) => Promise<{ rows: readonly Row[]; rowCount: number; insertId: number }>;
 
+const SLICE_MARKER = /\/\*SLICE:\w+\*\/\?/g;
+
 export type JsonValue =
   | string
   | number
@@ -89,23 +91,19 @@ export function expandSlices(
   scalars: readonly (readonly unknown[])[],
   slices: readonly (readonly unknown[])[],
 ): [string, unknown[]] {
-  const values: unknown[] = [...(scalars[0] ?? [])];
-  let index = 0;
-  const text = query.replace(/\/\*SLICE:\w+\*\/\?/g, () => {
-    const slice = slices[index];
-    if (!slice) {
-      throw new Error(
-        `expandSlices: ${slices.length} slice(s) given for a query with more markers`,
-      );
-    }
-    index += 1;
-    values.push(...slice, ...(scalars[index] ?? []));
-    return slice.length === 0 ? "NULL" : slice.map(() => "?").join(", ");
-  });
-  if (index !== slices.length || scalars.length !== index + 1) {
+  const markers = (query.match(SLICE_MARKER) ?? []).length;
+  if (markers !== slices.length || scalars.length !== markers + 1) {
     throw new Error(
-      `expandSlices: ${slices.length} slice(s) and ${scalars.length} scalar group(s) given for a query with ${index} marker(s)`,
+      `expandSlices: ${slices.length} slice(s) and ${scalars.length} scalar group(s) given for a query with ${markers} marker(s)`,
     );
   }
-  return [text, values];
+  // The counts match, so every index below is in range.
+  const group = (i: number) => scalars[i] as readonly unknown[];
+  let index = 0;
+  const text = query.replace(SLICE_MARKER, () => {
+    const slice = slices[index++] as readonly unknown[];
+    return slice.length === 0 ? "NULL" : slice.map(() => "?").join(", ");
+  });
+  const values = slices.flatMap((slice, i) => [...group(i), ...slice]);
+  return [text, [...values, ...group(markers)]];
 }
