@@ -40,24 +40,23 @@ sql:
     queries: db/queries
     gen:
       json:
-        out: db/gen
-        filename: codegen_request.json
+        out: src/lib/db/gen
 ```
 
 ```sh
-npx sqlc-ts generate db/gen/codegen_request.json src/lib/db/gen
+npx sqlc-ts generate
 ```
 
-This runs `sqlc generate` (pass `-f path/to/sqlc.yaml` if the config is not in the current directory), then writes the TypeScript from the JSON it produced. A query that does not match the schema stops here with sqlc's error, e.g. `db/queries/users.sql:2:8: column "nope" does not exist`.
+This runs `sqlc generate`, then writes the TypeScript next to the JSON sqlc produced, in the `out` directory of every `gen: json` in the config (`sqlc.yaml`, `sqlc.yml` or `sqlc.json` in the current directory; pass `-f path/to/sqlc.yaml` for another). A query that does not match the schema stops here with sqlc's error, e.g. `db/queries/users.sql:2:8: column "nope" does not exist`. To put the TypeScript somewhere else, name the JSON and the directory: `npx sqlc-ts generate db/gen/codegen_request.json src/lib/db/gen`.
 
 | Command | |
 |---|---|
-| `sqlc-ts generate <json> <out-dir> [-f sqlc.yaml]` | Run `sqlc generate`, then write TypeScript |
-| `sqlc-ts check <json> <out-dir> [-f sqlc.yaml]` | Check that the JSON and TypeScript are up to date, without writing anything |
+| `sqlc-ts generate [-f sqlc.yaml] [<json> <out-dir>]` | Run `sqlc generate`, then write TypeScript |
+| `sqlc-ts check [-f sqlc.yaml] [<json> <out-dir>]` | Check that the JSON and TypeScript are up to date, without writing anything |
 | `sqlc-ts <json> <out-dir>` | Write TypeScript from JSON sqlc already generated (when you run sqlc yourself) |
 | `sqlc-ts sqlc [args...]` | Run the bundled sqlc, e.g. `sqlc-ts sqlc vet` or `sqlc-ts sqlc version` |
 
-`check` is for CI: it runs `sqlc diff` (which checks every query like `sqlc generate` but compares its output with the JSON on disk), then generates the TypeScript in memory and compares it with `<out-dir>`. It exits 1 and lists the files when a query has an error, the JSON or a `.ts` file is out of date or missing, or a generated file is left over from a query file that no longer exists; hand-written files in `<out-dir>` are ignored.
+`check` is for CI: it runs `sqlc diff` (which checks every query like `sqlc generate` but compares its output with the JSON on disk), then generates the TypeScript in memory and compares it with the output directory. It exits 1 and lists the files when a query has an error, the JSON or a `.ts` file is out of date or missing, or a generated file is left over from a query file that no longer exists; hand-written files in the output directory are ignored.
 
 To use a different sqlc, set `SQLC_PATH`. Without it, sqlc-ts uses the bundled binary, then `sqlc` on `PATH` (for installs with optional dependencies turned off, or a platform without a package).
 
