@@ -10,7 +10,7 @@ The analysis is done by [sqlc](https://sqlc.dev), the Go tool. sqlc parses your 
 - **Errors at generate time**: an unknown column, a wrong table, or a type mismatch fails generation, not your app at runtime.
 - **sqlc included**: `npm install` brings a pinned sqlc binary for your platform, so there is no Go toolchain or separate sqlc install.
 - **Plain SQL**: queries are `.sql` files with a `-- name:` comment, not a query builder or an ORM.
-- **PostgreSQL, SQLite and MySQL**: sqlc's `postgresql`, `sqlite` and `mysql` engines, each with its own type mapping and small runtime adapters: postgres.js, pg, PGlite and Neon; node:sqlite, better-sqlite3 and Cloudflare D1; mysql2.
+- **PostgreSQL, SQLite and MySQL**: sqlc's `postgresql`, `sqlite` and `mysql` engines, each with its own type mapping and small runtime adapters: postgres.js, pg, PGlite and Neon; node:sqlite, better-sqlite3, bun:sqlite and Cloudflare D1; mysql2.
 
 Unofficial, not affiliated with sqlc (and unrelated to the `sqlc-typescript` npm package or sqlc's own `sqlc-gen-typescript` plugin).
 
@@ -87,12 +87,15 @@ const edge = fromNeon(neon(process.env.DATABASE_URL)); // a Neon Pool or Client 
 ```
 
 ```ts
-// SQLite, with node:sqlite (better-sqlite3 has the same shape) or Cloudflare D1
+// SQLite, with node:sqlite (better-sqlite3 has the same shape), bun:sqlite or Cloudflare D1
 import { DatabaseSync } from "node:sqlite";
+import { Database } from "bun:sqlite";
+import { fromBunSqlite } from "./gen/adapters/bun-sqlite";
 import { fromD1 } from "./gen/adapters/d1";
 import { fromSqlite } from "./gen/adapters/sqlite";
 
 const db = fromSqlite(new DatabaseSync("app.db"));
+const bun = fromBunSqlite(new Database("app.db"));
 const d1 = fromD1(env.DB);
 ```
 
@@ -150,7 +153,7 @@ pg and Neon parse the same way (pg returns `bytea` as a `Buffer`, which is a `Ui
 
 Follows SQLite's [type affinity](https://www.sqlite.org/datatype3.html) for the declared type: INTEGER affinity is `number` (parameters also take `bigint`), REAL is `number`, TEXT is `string`, BLOB is `Uint8Array`, and NUMERIC is `number | string` since SQLite keeps text that does not parse. `BOOLEAN` is `number` (parameters also take `boolean`), `DATE` / `DATETIME` / `TIMESTAMP` and `JSON` are `string`.
 
-Integers outside the safe range throw in node:sqlite and better-sqlite3 by default; turn on their bigint mode and cast if you store them. D1 rounds them instead, and rejects `bigint` parameters, so `fromD1` binds those as numbers; it returns a BLOB as an array of bytes, which `fromD1` turns back into a `Uint8Array`.
+Integers outside the safe range throw in node:sqlite and better-sqlite3 by default; turn on their bigint mode and cast if you store them. bun:sqlite and D1 round them instead (bun:sqlite has `safeIntegers` to get bigints), and rejects `bigint` parameters, so `fromD1` binds those as numbers; it returns a BLOB as an array of bytes, which `fromD1` turns back into a `Uint8Array`.
 
 Alias expression columns (`count(*) AS count`, `EXISTS (...) AS found`). sqlc names an unaliased one `count` or `exists`, but SQLite returns it under its text (`count(*)`), so the generated row mapper would read `undefined`.
 

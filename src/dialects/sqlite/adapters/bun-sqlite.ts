@@ -1,0 +1,31 @@
+// Copied into the output next to runtime.ts, so generated code has no dependency on sqlc-ts.
+
+import type { Executor, Row } from "../runtime";
+
+/** The part of a bun:sqlite Database the executor needs. */
+type BunSqliteDatabase = {
+  prepare(query: string): {
+    readonly columnNames: readonly string[];
+    all(...params: unknown[]): readonly Row[];
+    run(...params: unknown[]): { changes: number | bigint };
+  };
+};
+
+/**
+ * bun:sqlite binds booleans and bigints itself and returns a BLOB as a Uint8Array, so
+ * nothing needs converting. Integers beyond the safe range are rounded unless the
+ * database was opened with `safeIntegers`, which makes every INTEGER column a bigint.
+ */
+export function fromBunSqlite(db: BunSqliteDatabase): Executor {
+  return async (query, params) => {
+    const statement = db.prepare(query);
+    // all() on a statement without result columns returns nothing useful, and run() is the
+    // only way to get the affected row count.
+    if (statement.columnNames.length === 0) {
+      const { changes } = statement.run(...params);
+      return { rows: [], rowCount: Number(changes) };
+    }
+    const rows = statement.all(...params);
+    return { rows, rowCount: rows.length };
+  };
+}
