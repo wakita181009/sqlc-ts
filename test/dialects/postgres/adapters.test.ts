@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { fromBunSql } from "../../../src/dialects/postgres/adapters/bun-sql.ts";
 import { fromNeon } from "../../../src/dialects/postgres/adapters/neon.ts";
 import { fromPg } from "../../../src/dialects/postgres/adapters/pg.ts";
 import { fromPglite } from "../../../src/dialects/postgres/adapters/pglite.ts";
@@ -63,6 +64,48 @@ describe("fromNeon", () => {
       fullResults: true,
     });
     expect(result).toEqual({ rows: [{ id: 1 }], rowCount: 1 });
+  });
+});
+
+describe("fromBunSql", () => {
+  it("passes the statement and parameters to unsafe() and reads count", async () => {
+    const sql = {
+      unsafe: vi
+        .fn()
+        .mockResolvedValue(Object.assign([{ id: 1 }], { count: 1 })),
+    };
+    const db = fromBunSql(sql);
+    expect(await db("select $1", [7])).toEqual({
+      rows: [{ id: 1 }],
+      rowCount: 1,
+    });
+    expect(sql.unsafe).toHaveBeenCalledWith("select $1", [7]);
+  });
+
+  it("turns typed integer arrays into plain arrays but keeps bytea as is", async () => {
+    const poster = new Uint8Array([1, 2]);
+    const sql = {
+      unsafe: vi.fn().mockResolvedValue(
+        Object.assign([{ ids: new Int32Array([1, 2]), poster, tags: ["x"] }], {
+          count: 1,
+        }),
+      ),
+    };
+    const { rows } = await fromBunSql(sql)("select 1", []);
+    expect(rows[0]?.ids).toEqual([1, 2]);
+    expect(Array.isArray(rows[0]?.ids)).toBe(true);
+    expect(rows[0]?.poster).toBe(poster);
+    expect(rows[0]?.tags).toEqual(["x"]);
+  });
+
+  it("reports count as the affected rows for a statement without a result set", async () => {
+    const sql = {
+      unsafe: vi.fn().mockResolvedValue(Object.assign([], { count: 3 })),
+    };
+    expect(await fromBunSql(sql)("update t set x = 1", [])).toEqual({
+      rows: [],
+      rowCount: 3,
+    });
   });
 });
 
