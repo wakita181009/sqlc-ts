@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/wakita181009/sqlc-ts/compare/sqlc-ts-v0.6.0...sqlc-ts-v0.7.0) (2026-10-31)
+
+
+### Features
+
+* add Bun.sql adapters for Postgres and SQLite ([#22](https://github.com/wakita181009/sqlc-ts/issues/22)) ([d3618bb](https://github.com/wakita181009/sqlc-ts/commit/d3618bb1025c3425f1f15498de73b720c96f4db4))
+
 ## [0.6.0](https://github.com/wakita181009/sqlc-ts/compare/sqlc-ts-v0.5.0...sqlc-ts-v0.6.0) (2026-10-31)
 
 
