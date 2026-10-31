@@ -113,12 +113,21 @@ describe("fromPglite", () => {
   it("turns int8 columns and int8[] elements back into strings", async () => {
     const db = {
       query: vi.fn().mockResolvedValue({
-        rows: [{ id: 1, ids: [1, null, 9007199254740993n], n: 2, none: null }],
+        rows: [
+          {
+            id: 1,
+            ids: [1, null, 9007199254740993n],
+            n: 2,
+            none: null,
+            noIds: null,
+          },
+        ],
         fields: [
           { name: "id", dataTypeID: 20 },
           { name: "ids", dataTypeID: 1016 },
           { name: "n", dataTypeID: 23 },
           { name: "none", dataTypeID: 20 },
+          { name: "noIds", dataTypeID: 1016 },
         ],
         affectedRows: 0,
       }),
@@ -127,7 +136,13 @@ describe("fromPglite", () => {
     const { rows, rowCount } = await fromPglite(db)("select 1", []);
 
     expect(rows).toEqual([
-      { id: "1", ids: ["1", null, "9007199254740993"], n: 2, none: null },
+      {
+        id: "1",
+        ids: ["1", null, "9007199254740993"],
+        n: 2,
+        none: null,
+        noIds: null,
+      },
     ]);
     expect(rowCount).toBe(1);
   });
@@ -140,6 +155,15 @@ describe("fromPglite", () => {
     };
 
     expect((await fromPglite(db)("delete", [])).rowCount).toBe(3);
+  });
+
+  it("counts zero rows when a result has neither rows nor affectedRows", async () => {
+    const db = { query: vi.fn().mockResolvedValue({ rows: [], fields: [] }) };
+
+    expect(await fromPglite(db)("select 1 where false", [])).toEqual({
+      rows: [],
+      rowCount: 0,
+    });
   });
 });
 

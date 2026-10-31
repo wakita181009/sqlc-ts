@@ -53,6 +53,7 @@ export function runSqlc(
       );
       resolve(127);
     });
-    child.on("close", (code, signal) => resolve(code ?? (signal ? 1 : 0)));
+    // A null code means a signal ended sqlc.
+    child.on("close", (code) => resolve(code ?? 1));
   });
 }

@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import type { Bind, Dialect, EnumTypes } from "./dialects/dialect.ts";
 import { pickDialect, supportedEngines } from "./dialects/index.ts";
-import { applyEmbeds, type Embed } from "./embed.ts";
+import { applyEmbeds, type Embed, embedAlias } from "./embed.ts";
 import type { Catalog, Column, GenerateRequest, Query } from "./request.ts";
 
 export type GeneratedFile = { path: string; contents: string };
@@ -458,15 +458,15 @@ function embedFields(
   report: (problem: string) => void,
 ): Field[] {
   const fields = toFields(
-    embed.columns.map(({ column }) => column),
+    embed.columns,
     "column",
     dialect,
     (problem) => report(`${embed.name}: ${problem}`),
     (column) => ({ ts: resolve(column, "output"), nullable: !column.not_null }),
   );
-  return fields.map((field, i) => ({
+  return fields.map((field) => ({
     ...field,
-    column: embed.columns[i]?.alias ?? field.column,
+    column: embedAlias(embed.name, field.column),
   }));
 }
 

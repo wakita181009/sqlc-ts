@@ -1,15 +1,17 @@
 import type { Dialect } from "./dialects/dialect.ts";
 import type { Catalog, Column, Query, Table } from "./request.ts";
 
-/** One table column of a `sqlc.embed()`, and the alias the rewritten SELECT gives it. */
-export type EmbedColumn = { column: Column; alias: string };
-
 export type Embed = {
   /** The result column sqlc emits for the embed, e.g. `titles`. */
   name: string;
   table: Table;
-  columns: readonly EmbedColumn[];
+  columns: readonly Column[];
 };
+
+/** The alias the rewritten SELECT gives an embedded table's column, e.g. `titles.id`. */
+export function embedAlias(embed: string, column: string): string {
+  return `${embed}.${column}`;
+}
 
 export type EmbeddedQuery = {
   text: string;
@@ -43,23 +45,22 @@ export function applyEmbeds(
       );
       return;
     }
-    const columns = table.columns.map((col) => ({
-      column: col,
-      alias: `${column.name}.${col.name}`,
-    }));
-    const bad = columns.find(({ alias }) => alias.includes(dialect.quote));
+    const aliases = table.columns.map((col) =>
+      embedAlias(column.name, col.name),
+    );
+    const bad = aliases.find((alias) => alias.includes(dialect.quote));
     if (bad) {
       report(
-        `sqlc.embed(${table.rel.name}): cannot alias "${bad.alias}", it contains ${dialect.quote}`,
+        `sqlc.embed(${table.rel.name}): cannot alias "${bad}", it contains ${dialect.quote}`,
       );
       return;
     }
-    const long = columns.find(
-      ({ alias }) => Buffer.byteLength(alias) > dialect.maxIdentifierBytes,
+    const long = aliases.find(
+      (alias) => Buffer.byteLength(alias) > dialect.maxIdentifierBytes,
     );
     if (long) {
       report(
-        `sqlc.embed(${table.rel.name}): the alias "${long.alias}" is longer than the ${dialect.maxIdentifierBytes} bytes ${dialect.engine} keeps; select the columns explicitly`,
+        `sqlc.embed(${table.rel.name}): the alias "${long}" is longer than the ${dialect.maxIdentifierBytes} bytes ${dialect.engine} keeps; select the columns explicitly`,
       );
       return;
     }
@@ -83,14 +84,16 @@ export function applyEmbeds(
       );
       return;
     }
+    // expansion() builds one ", "-joined part per table column, so the match splits
+    // into exactly one expression per alias.
     const exprs = match[0].split(", ");
-    const aliased = exprs
-      .map((expr, i) => `${expr} AS ${quote(columns[i]?.alias ?? "", dialect)}`)
+    const aliased = aliases
+      .map((alias, i) => `${exprs[i]} AS ${quote(alias, dialect)}`)
       .join(", ");
     const start = from + match.index;
     text = text.slice(0, start) + aliased + text.slice(start + match[0].length);
     from = start + aliased.length;
-    embeds.set(index, { name: column.name, table, columns });
+    embeds.set(index, { name: column.name, table, columns: table.columns });
   });
   return { text, embeds };
 }
