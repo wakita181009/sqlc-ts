@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   camelCase,
@@ -147,6 +147,21 @@ describe("generate", () => {
     expect(problems(req)).toEqual([
       'titles.sql Delete: "delete" is a reserved word in JS; rename the query',
     ]);
+  });
+
+  it("copies only .ts files from adapters/, not editor or Finder droppings", () => {
+    const stray = new URL(
+      "../src/dialects/postgres/adapters/.DS_Store",
+      import.meta.url,
+    );
+    writeFileSync(stray, "");
+    try {
+      const paths = generate(request).map((file) => file.path);
+      expect(paths).not.toContain("adapters/.DS_Store");
+      expect(paths).toContain("adapters/pg.ts");
+    } finally {
+      rmSync(stray);
+    }
   });
 
   it("refuses a query file whose output would overwrite runtime.ts", () => {
