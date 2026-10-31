@@ -4,6 +4,7 @@ import {
   mkdtemp,
   readdir,
   readFile,
+  rename,
   rm,
   writeFile,
 } from "node:fs/promises";
@@ -249,6 +250,112 @@ describe("main with sqlc", () => {
     vi.stubEnv("FAKE_SQLC_EXIT", "4");
     expect(await main(["sqlc", "vet", "--help"])).toBe(4);
     expect(await sqlcArgs()).toBe("vet --help\n");
+  });
+
+  describe("from sqlc's config", () => {
+    const config = (out: string, extra = "") =>
+      `version: "2"\nsql:\n  - engine: postgresql\n    schema: s\n    queries: q\n    gen:\n      json:\n        out: ${out}\n${extra}`;
+
+    let cwd: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(async () => {
+      await mkdir(outDir);
+      await rename(requestPath, join(outDir, "codegen_request.json"));
+      cwd = vi.spyOn(process, "cwd").mockReturnValue(dir);
+    });
+
+    // Not restoreAllMocks: that would also restore the console spies above.
+    afterEach(() => cwd.mockRestore());
+
+    it("generate writes the TypeScript next to the JSON of sqlc.yaml's gen: json", async () => {
+      await writeFile(join(dir, "sqlc.yaml"), config("gen"));
+
+      expect(await main(["generate"])).toBe(0);
+      expect(await sqlcArgs()).toBe("generate\n");
+      expect(await readdir(outDir)).toContain("titles.ts");
+      expect(log).toHaveBeenCalledWith(
+        expect.stringContaining(`wrote 11 file(s) to ${outDir}`),
+      );
+    });
+
+    it("resolves the config's paths against the config file given with -f", async () => {
+      await mkdir(join(dir, "db"));
+      await writeFile(join(dir, "db", "sqlc.yaml"), config("../gen"));
+      cwd.mockReturnValue(tmpdir());
+
+      expect(await main(["generate", "-f", join(dir, "db", "sqlc.yaml")])).toBe(
+        0,
+      );
+      expect(await readdir(outDir)).toContain("titles.ts");
+    });
+
+    it("handles every gen: json entry and honours a custom filename", async () => {
+      const second = join(dir, "admin");
+      await mkdir(second);
+      await writeFile(join(second, "req.json"), JSON.stringify(fixture));
+      await writeFile(
+        join(dir, "sqlc.json"),
+        JSON.stringify({
+          version: "2",
+          sql: [
+            { engine: "postgresql", gen: { json: { out: "gen" } } },
+            { engine: "postgresql", gen: { go: { out: "go" } } },
+            {
+              engine: "postgresql",
+              gen: { json: { out: "admin", filename: "req.json" } },
+            },
+          ],
+        }),
+      );
+
+      expect(await main(["generate"])).toBe(0);
+      expect(await readdir(outDir)).toContain("titles.ts");
+      expect(await readdir(second)).toContain("titles.ts");
+    });
+
+    it("check runs sqlc diff and compares every target", async () => {
+      await writeFile(join(dir, "sqlc.yaml"), config("gen"));
+      await main(["generate"]);
+      await rm(join(outDir, "enums.ts"));
+      error.mockClear();
+
+      expect(await main(["check"])).toBe(1);
+      expect(await sqlcArgs()).toBe("generate\ndiff\n");
+      expect(error).toHaveBeenCalledWith(
+        `  missing: ${join(outDir, "enums.ts")}`,
+      );
+    });
+
+    it("exits 2 with usage when there is no config", async () => {
+      expect(await main(["generate"])).toBe(2);
+      expect(error).toHaveBeenCalledWith(
+        expect.stringContaining("no sqlc.yaml, sqlc.yml, sqlc.json in"),
+      );
+      expect(error).toHaveBeenCalledWith(expect.stringContaining("Usage:"));
+      await expect(sqlcArgs()).rejects.toThrow();
+    });
+
+    it("exits 2 when the config has no gen: json output", async () => {
+      await writeFile(
+        join(dir, "sqlc.yaml"),
+        config("gen").replace("json:", "go:"),
+      );
+      expect(await main(["generate"])).toBe(2);
+      expect(error).toHaveBeenCalledWith(
+        expect.stringContaining("no sql entry with a gen: json block"),
+      );
+    });
+
+    it("exits 2 when -f names a missing file", async () => {
+      expect(await main(["check", "-f", "nope.yaml"])).toBe(2);
+      expect(error).toHaveBeenCalledWith("sqlc-ts: nope.yaml does not exist");
+    });
+
+    it("still needs both arguments when one is given", async () => {
+      await writeFile(join(dir, "sqlc.yaml"), config("gen"));
+      expect(await main(["generate", outDir])).toBe(2);
+      expect(error).toHaveBeenCalledWith(expect.stringContaining("Usage:"));
+    });
   });
 
   it("rejects --file without generate", async () => {

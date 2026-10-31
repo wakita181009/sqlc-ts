@@ -3,6 +3,7 @@ import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { parseArgs } from "node:util";
+import { readTargets, type Target } from "./config.ts";
 import {
   ADAPTERS_DIR,
   GENERATED_MARKER,
@@ -13,20 +14,24 @@ import {
 import type { GenerateRequest } from "./request.ts";
 import { runSqlc } from "./sqlc.ts";
 
-const USAGE = `Usage: sqlc-ts generate <codegen_request.json> <out-dir> [-f sqlc.yaml]
-       sqlc-ts check <codegen_request.json> <out-dir> [-f sqlc.yaml]
+const USAGE = `Usage: sqlc-ts generate [-f sqlc.yaml] [<codegen_request.json> <out-dir>]
+       sqlc-ts check [-f sqlc.yaml] [<codegen_request.json> <out-dir>]
        sqlc-ts <codegen_request.json> <out-dir>
        sqlc-ts sqlc [sqlc args...]
 
 Commands:
   generate   Run \`sqlc generate\`, then write TypeScript from its JSON output
-  check      Check that sqlc's JSON and the TypeScript in <out-dir> are up to date,
-             without writing anything (\`sqlc diff\`, then compare the files)
+  check      Check that sqlc's JSON and the TypeScript are up to date, without
+             writing anything (\`sqlc diff\`, then compare the files)
   (none)     Write TypeScript from JSON that sqlc already generated
   sqlc       Run the bundled sqlc with the given arguments
 
+Without <codegen_request.json> <out-dir>, generate and check read sqlc's config
+(sqlc.yaml, sqlc.yml or sqlc.json in the current directory, or -f) and write the
+TypeScript next to the JSON of every \`gen: json\` output in it.
+
 Options:
-  -f, --file  sqlc config file passed to sqlc (generate and check only)
+  -f, --file  sqlc config file (generate and check only)
   --help      Show this message
   --version   Print the version`;
 
@@ -86,15 +91,15 @@ export async function main(args: readonly string[]): Promise<number> {
   }
   const command = cli.positionals[0];
   const runSqlcFirst = command === "generate" || command === "check";
-  const [requestPath, outDir, ...extra] = runSqlcFirst
-    ? cli.positionals.slice(1)
-    : cli.positionals;
-  if (!requestPath || !outDir || extra.length > 0) {
+  const positionals = runSqlcFirst ? cli.positionals.slice(1) : cli.positionals;
+  if (cli.file !== undefined && !runSqlcFirst) {
+    console.error("sqlc-ts: --file only applies to generate and check");
     console.error(USAGE);
     return 2;
   }
-  if (cli.file !== undefined && !runSqlcFirst) {
-    console.error("sqlc-ts: --file only applies to generate and check");
+  const targets = await resolveTargets(positionals, cli.file, runSqlcFirst);
+  if ("error" in targets) {
+    if (targets.error) console.error(`sqlc-ts: ${targets.error}`);
     console.error(USAGE);
     return 2;
   }
@@ -115,22 +120,55 @@ export async function main(args: readonly string[]): Promise<number> {
       return code;
     }
   }
-  const request = JSON.parse(
-    await readFile(requestPath, "utf8"),
-  ) as GenerateRequest;
+  let exit = 0;
+  for (const target of targets) {
+    const code =
+      command === "check"
+        ? await checkTarget(target)
+        : await writeTarget(target);
+    exit = Math.max(exit, code);
+  }
+  return exit;
+}
 
-  let files: GeneratedFile[];
+/**
+ * Where the JSON is and where the TypeScript goes: both given on the command line, or for
+ * generate and check with no arguments, every `gen: json` output in sqlc's config, with
+ * the TypeScript written next to the JSON.
+ */
+async function resolveTargets(
+  positionals: readonly string[],
+  file: string | undefined,
+  fromConfig: boolean,
+): Promise<Target[] | { error: string }> {
+  const [request, outDir, ...extra] = positionals;
+  if (request && outDir && extra.length === 0) return [{ request, outDir }];
+  if (positionals.length > 0 || !fromConfig) return { error: "" };
+  return readTargets(file);
+}
+
+async function readRequest(path: string): Promise<GenerateRequest> {
+  return JSON.parse(await readFile(path, "utf8")) as GenerateRequest;
+}
+
+/** Generates for one target, reporting problems; undefined when there were any. */
+async function generateTarget(
+  target: Target,
+): Promise<GeneratedFile[] | undefined> {
   try {
-    files = generate(request);
+    return generate(await readRequest(target.request));
   } catch (err) {
     if (!(err instanceof GenerateError)) throw err;
     console.error(`sqlc-ts: ${err.problems.length} problem(s)`);
     for (const problem of err.problems) console.error(`  ${problem}`);
-    return 1;
+    return undefined;
   }
+}
 
-  if (command === "check") return checkFiles(files, outDir);
-
+async function writeTarget(target: Target): Promise<number> {
+  const files = await generateTarget(target);
+  if (!files) return 1;
+  const { outDir } = target;
   await mkdir(outDir, { recursive: true });
   const written = new Set(files.map((file) => file.path));
   // Drop files generated earlier for query files that no longer exist; leave anything
@@ -143,6 +181,12 @@ export async function main(args: readonly string[]): Promise<number> {
   }
   console.log(`sqlc-ts: wrote ${files.length} file(s) to ${outDir}`);
   return 0;
+}
+
+async function checkTarget(target: Target): Promise<number> {
+  const files = await generateTarget(target);
+  if (!files) return 1;
+  return checkFiles(files, target.outDir);
 }
 
 /** Files in outDir that sqlc-ts generated earlier and that are not in `current`. */
