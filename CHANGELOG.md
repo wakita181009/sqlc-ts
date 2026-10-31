@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/wakita181009/sqlc-ts/compare/sqlc-ts-v0.4.0...sqlc-ts-v0.4.1) (2026-10-31)
+
+
+### Bug Fixes
+
+* copy only .ts adapters and stop compiling the copied runtime files ([#15](https://github.com/wakita181009/sqlc-ts/issues/15)) ([03ee0b1](https://github.com/wakita181009/sqlc-ts/commit/03ee0b13efb478eb831d5173d9546530fdf78f4e))
+
 ## [0.4.0](https://github.com/wakita181009/sqlc-ts/compare/sqlc-ts-v0.3.0...sqlc-ts-v0.4.0) (2026-10-30)
 
 
