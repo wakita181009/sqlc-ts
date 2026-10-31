@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/wakita181009/sqlc-ts/compare/sqlc-ts-v0.4.1...sqlc-ts-v0.5.0) (2026-10-31)
+
+
+### Features
+
+* let generate and check read the targets from sqlc's config ([#18](https://github.com/wakita181009/sqlc-ts/issues/18)) ([1ed8edd](https://github.com/wakita181009/sqlc-ts/commit/1ed8edd6c678c2386a7d3af25febbede6d9b36c7))
+
 ## [0.4.1](https://github.com/wakita181009/sqlc-ts/compare/sqlc-ts-v0.4.0...sqlc-ts-v0.4.1) (2026-10-31)
 
 
