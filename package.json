@@ -1,6 +1,6 @@
 {
   "name": "sqlc-ts",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Typed TypeScript query functions from sqlc's JSON analysis",
   "keywords": [
     "sqlc",
