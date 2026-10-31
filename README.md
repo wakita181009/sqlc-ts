@@ -10,7 +10,7 @@ The analysis is done by [sqlc](https://sqlc.dev), the Go tool. sqlc parses your 
 - **Errors at generate time**: an unknown column, a wrong table, or a type mismatch fails generation, not your app at runtime.
 - **sqlc included**: `npm install` brings a pinned sqlc binary for your platform, so there is no Go toolchain or separate sqlc install.
 - **Plain SQL**: queries are `.sql` files with a `-- name:` comment, not a query builder or an ORM.
-- **PostgreSQL, SQLite and MySQL**: sqlc's `postgresql`, `sqlite` and `mysql` engines, each with its own type mapping and small runtime adapters: postgres.js, pg, PGlite and Neon; node:sqlite, better-sqlite3, bun:sqlite and Cloudflare D1; mysql2.
+- **PostgreSQL, SQLite and MySQL**: sqlc's `postgresql`, `sqlite` and `mysql` engines, each with its own type mapping and small runtime adapters: postgres.js, pg, PGlite, Neon and Bun.sql; node:sqlite, better-sqlite3, bun:sqlite, Cloudflare D1 and Bun.sql; mysql2.
 
 Unofficial, not affiliated with sqlc (and unrelated to the `sqlc-typescript` npm package or sqlc's own `sqlc-gen-typescript` plugin).
 
@@ -73,10 +73,12 @@ const user = await getUser(db, { id }); // GetUserRow | null
 ```
 
 ```ts
-// Postgres, with pg (node-postgres), PGlite or Neon
+// Postgres, with pg (node-postgres), PGlite, Neon or Bun.sql
 import { PGlite } from "@electric-sql/pglite";
 import { neon } from "@neondatabase/serverless";
+import { SQL } from "bun";
 import pg from "pg";
+import { fromBunSql } from "./gen/adapters/bun-sql";
 import { fromNeon } from "./gen/adapters/neon";
 import { fromPg } from "./gen/adapters/pg";
 import { fromPglite } from "./gen/adapters/pglite";
@@ -84,12 +86,15 @@ import { fromPglite } from "./gen/adapters/pglite";
 const db = fromPg(new pg.Pool({ connectionString: process.env.DATABASE_URL }));
 const local = fromPglite(new PGlite());
 const edge = fromNeon(neon(process.env.DATABASE_URL)); // a Neon Pool or Client goes through fromPg
+const bun = fromBunSql(new SQL(process.env.DATABASE_URL)); // Bun 1.4+
 ```
 
 ```ts
-// SQLite, with node:sqlite (better-sqlite3 has the same shape), bun:sqlite or Cloudflare D1
+// SQLite, with node:sqlite (better-sqlite3 has the same shape), bun:sqlite, Bun.sql or Cloudflare D1
 import { DatabaseSync } from "node:sqlite";
+import { SQL } from "bun";
 import { Database } from "bun:sqlite";
+import { fromBunSql } from "./gen/adapters/bun-sql";
 import { fromBunSqlite } from "./gen/adapters/bun-sqlite";
 import { fromD1 } from "./gen/adapters/d1";
 import { fromSqlite } from "./gen/adapters/sqlite";
@@ -97,6 +102,7 @@ import { fromSqlite } from "./gen/adapters/sqlite";
 const db = fromSqlite(new DatabaseSync("app.db"));
 const bun = fromBunSqlite(new Database("app.db"));
 const d1 = fromD1(env.DB);
+const bunSql = fromBunSql(new SQL("sqlite://app.db"));
 ```
 
 ```ts
@@ -145,7 +151,7 @@ sqlc's type inference is a reimplementation of Postgres', and it reads some null
 
 Matches postgres.js's default parsers: `int8` and `numeric` are strings (`int8` parameters also take a number or bigint, `numeric` parameters a number), `date` / `timestamp(tz)` are `Date`, `json(b)` is `JsonValue`, `bytea` is `Uint8Array`, enums are string unions, and types without a parser come back as their text, so `string`. Array elements are assumed non-null.
 
-pg and Neon parse the same way (pg returns `bytea` as a `Buffer`, which is a `Uint8Array`). PGlite parses `int8` to a number, so `fromPglite` turns `int8` columns and `int8[]` elements back into strings using the type ids in the result; its `date` is midnight UTC where postgres.js and pg use local midnight.
+pg and Neon parse the same way (pg returns `bytea` as a `Buffer`, which is a `Uint8Array`). PGlite parses `int8` to a number, so `fromPglite` turns `int8` columns and `int8[]` elements back into strings using the type ids in the result; its `date` is midnight UTC where postgres.js and pg use local midnight. Bun.sql parses like postgres.js too, but reads `date` and `timestamp` as UTC, and an integer array computed in the query (`ARRAY[...]`, `$1::int4[]`) comes back as a typed array, which `fromBunSql` turns into a plain array; it needs Bun 1.4 or later, since 1.3 cannot bind array parameters through `unsafe()`.
 
 `sqlc.slice()` is not available on Postgres (sqlc itself does not support it there); use `= ANY(@ids::bigint[])`.
 
