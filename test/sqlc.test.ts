@@ -79,6 +79,14 @@ describe("runSqlc", () => {
     );
   });
 
+  it("resolves to 1 when a signal ends sqlc", async () => {
+    const bin = join(dir, "sqlc");
+    await writeFile(bin, "#!/bin/sh\nkill -9 $$\n");
+    await chmod(bin, 0o755);
+
+    expect(await runSqlc(["version"], bin)).toBe(1);
+  });
+
   it("explains how to get sqlc when it is missing", async () => {
     expect(await runSqlc(["version"], join(dir, "missing"))).toBe(127);
     expect(error).toHaveBeenCalledWith(

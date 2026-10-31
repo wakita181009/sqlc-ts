@@ -229,6 +229,14 @@ describe("main with sqlc", () => {
     await expect(readdir(outDir)).rejects.toThrow();
   });
 
+  it("check rethrows read errors other than a missing file", async () => {
+    await mkdir(join(outDir, "enums.ts"), { recursive: true });
+
+    await expect(main(["check", requestPath, outDir])).rejects.toThrow(
+      /EISDIR/,
+    );
+  });
+
   it("check stops with sqlc's exit code when sqlc diff fails", async () => {
     vi.stubEnv("FAKE_SQLC_EXIT", "1");
     expect(await main(["check", requestPath, outDir])).toBe(1);
@@ -341,6 +349,14 @@ describe("main with sqlc", () => {
         join(dir, "sqlc.yaml"),
         config("gen").replace("json:", "go:"),
       );
+      expect(await main(["generate"])).toBe(2);
+      expect(error).toHaveBeenCalledWith(
+        expect.stringContaining("no sql entry with a gen: json block"),
+      );
+    });
+
+    it("exits 2 when the config is empty", async () => {
+      await writeFile(join(dir, "sqlc.yaml"), "");
       expect(await main(["generate"])).toBe(2);
       expect(error).toHaveBeenCalledWith(
         expect.stringContaining("no sql entry with a gen: json block"),

@@ -292,6 +292,26 @@ describe("sqlc.embed()", () => {
     );
   });
 
+  it("reports an embedded table's columns under the embed's name", () => {
+    const req = structuredClone(request);
+    const table = req.catalog.schemas
+      .find((s) => s.name === "public")
+      ?.tables?.find((t) => t.rel.name === "views");
+    const titleId = table?.columns.find((c) => c.name === "title_id");
+    if (!table || !titleId) throw new Error("no views.title_id");
+    table.columns.push({ ...titleId, name: "titleId" });
+    const query = req.queries.find((q) => q.name === "GetTitleWithView");
+    if (!query) throw new Error("no query");
+    query.text = query.text.replace(
+      "views.viewed_at\n",
+      "views.viewed_at, views.titleId\n",
+    );
+
+    expect(problems(req)).toContain(
+      'embed.sql GetTitleWithView: views: two columns map to "titleId"; alias one with AS',
+    );
+  });
+
   it("refuses a table whose type name the generated file already uses", () => {
     const req = structuredClone(request);
     const table = req.catalog.schemas
