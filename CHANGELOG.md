@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/wakita181009/sqlc-ts/compare/sqlc-ts-v0.5.0...sqlc-ts-v0.6.0) (2026-10-31)
+
+
+### Features
+
+* add a bun:sqlite adapter ([#20](https://github.com/wakita181009/sqlc-ts/issues/20)) ([ca06f2f](https://github.com/wakita181009/sqlc-ts/commit/ca06f2f8c28f4fdaf0ae478bc21c2178505a1ca1))
+
 ## [0.5.0](https://github.com/wakita181009/sqlc-ts/compare/sqlc-ts-v0.4.1...sqlc-ts-v0.5.0) (2026-10-31)
 
 
