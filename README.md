@@ -141,7 +141,7 @@ sqlc's type inference is a reimplementation of Postgres', and it reads some null
 
 ### Postgres
 
-Matches postgres.js's default parsers: `int8` and `numeric` are strings (parameters also take number / bigint), `date` / `timestamp(tz)` are `Date`, `json(b)` is `JsonValue`, `bytea` is `Uint8Array`, enums are string unions, and types without a parser come back as their text, so `string`. Array elements are assumed non-null.
+Matches postgres.js's default parsers: `int8` and `numeric` are strings (`int8` parameters also take a number or bigint, `numeric` parameters a number), `date` / `timestamp(tz)` are `Date`, `json(b)` is `JsonValue`, `bytea` is `Uint8Array`, enums are string unions, and types without a parser come back as their text, so `string`. Array elements are assumed non-null.
 
 pg and Neon parse the same way (pg returns `bytea` as a `Buffer`, which is a `Uint8Array`). PGlite parses `int8` to a number, so `fromPglite` turns `int8` columns and `int8[]` elements back into strings using the type ids in the result; its `date` is midnight UTC where postgres.js and pg use local midnight.
 
@@ -159,7 +159,7 @@ Alias expression columns (`count(*) AS count`, `EXISTS (...) AS found`). sqlc na
 
 ### MySQL
 
-Matches mysql2's default options: every integer type including `BIGINT` is `number` (parameters also take `bigint`; values beyond 2^53 are rounded unless you turn on `supportBigNumbers`, in which case cast), `DECIMAL` is `string` (parameters also take `number`), `DATE` / `DATETIME` / `TIMESTAMP` are `Date`, `JSON` is `JsonValue` (parameters take an array or object, the only values mysql2 sends as JSON), `BLOB` / `BINARY` / `BIT` are `Uint8Array` (mysql2 returns Buffers), `BOOLEAN` is `number` (parameters also take `boolean`), `ENUM` is a string union named `<table>_<column>`, and `TIME` and anything else come back as text, so `string`. sqlc reports a `SET` column as an enum too, so it gets the same union even though MySQL returns several members joined with commas; cast to `CHAR` where that matters.
+Matches mysql2's default options: every integer type including `BIGINT` is `number` (parameters also take `bigint`; values beyond 2^53 are rounded unless you turn on `supportBigNumbers`, in which case cast), `DECIMAL` is `string` (parameters also take `number`), `DATE` / `DATETIME` / `TIMESTAMP` are `Date`, `JSON` is `JsonValue` (parameters take an array or object, the only values mysql2 sends as JSON), `BLOB` / `BINARY` / `BIT` are `Uint8Array` (mysql2 returns Buffers), `BOOLEAN` is `number` (parameters also take `boolean`), `ENUM` is a string union named after its table and column (`titles.status` → `TitlesStatus`), and `TIME` and anything else come back as text, so `string`. sqlc reports a `SET` column as an enum too, so it gets the same union even though MySQL returns several members joined with commas; cast to `CHAR` where that matters.
 
 Parameters are `?`, `sqlc.arg(name)`, `sqlc.narg(name)` and `sqlc.slice(name)`. `@name` is not a parameter on MySQL: sqlc leaves it in the SQL, where MySQL reads it as a session variable (NULL unless set), so sqlc-ts fails generation when one is left in a query (`@@system_variables` are fine). Alias expression columns (`count(*) AS count`), as for SQLite. `sqlc.slice()` is supported, with an empty array expanding to `NULL`. sqlc cannot type `max(...)` and some other expressions on MySQL; cast them (`CAST(max(x) AS DATETIME)`) and mark them `@nullable` where an outer join can make them null.
 
