@@ -166,7 +166,11 @@ export function generate(request: GenerateRequest): GeneratedFile[] {
     path: "runtime.ts",
     contents: `${header("sqlc-ts", request.sqlc_version)}\n${readFileSync(dialect.runtime, "utf8")}`,
   });
-  for (const name of readdirSync(dialect.adapters).sort()) {
+  // Only the adapters themselves: a .DS_Store or editor swap file next to them is not output.
+  const adapterNames = readdirSync(dialect.adapters)
+    .filter((name) => name.endsWith(".ts"))
+    .sort();
+  for (const name of adapterNames) {
     files.push({
       path: `${ADAPTERS_DIR}/${name}`,
       contents: `${header("sqlc-ts", request.sqlc_version)}\n${readFileSync(new URL(name, dialect.adapters), "utf8")}`,
