@@ -57,7 +57,7 @@
     "miniflare": "4.20260730.0",
     "mysql2": "3.24.6",
     "pg": "8.23.1",
-    "postgres": "3.4.9",
+    "postgres": "4.1.0",
     "typescript": "7.0.2",
     "vitest": "5.0.5"
   },
