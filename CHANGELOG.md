@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/wakita181009/sqlc-ts/compare/sqlc-ts-v0.7.0...sqlc-ts-v0.8.0) (2026-11-10)
+
+
+### Features
+
+* bundle sqlc for Windows again (sqlc-ts-win32-x64 / -arm64) ([#32](https://github.com/wakita181009/sqlc-ts/issues/32)) ([342b644](https://github.com/wakita181009/sqlc-ts/commit/342b644eaa71f76b68a4b18936159a36a8b6bfdd))
+
 ## [0.7.0](https://github.com/wakita181009/sqlc-ts/compare/sqlc-ts-v0.6.0...sqlc-ts-v0.7.0) (2026-10-31)
 
 
