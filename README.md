@@ -23,7 +23,7 @@ schema + queries (.sql)
   → sqlc-ts              (writes .ts query functions + runtime)
 ```
 
-`sqlc-ts generate` runs both steps. The sqlc binary comes from an optional dependency for your platform (`sqlc-ts-linux-x64`, `sqlc-ts-darwin-arm64`, ...; macOS and Linux on x64 and arm64; on Windows, install sqlc yourself or set `SQLC_PATH`), which holds the unmodified binary and license from sqlc's GitHub release (sqlc is MIT-licensed). The bundled version is the one pinned in `tools/sqlc/go.mod`.
+`sqlc-ts generate` runs both steps. The sqlc binary comes from an optional dependency for your platform (`sqlc-ts-linux-x64`, `sqlc-ts-darwin-arm64`, ...; macOS, Linux and Windows on x64 and arm64), which holds the unmodified binary and license from sqlc's GitHub release (sqlc is MIT-licensed). The bundled version is the one pinned in `tools/sqlc/go.mod`.
 
 ## Usage
 

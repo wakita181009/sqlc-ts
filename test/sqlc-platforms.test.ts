@@ -52,6 +52,15 @@ describe("platformManifest", () => {
       files: ["bin/sqlc", "LICENSE"],
     });
   });
+
+  it("ships sqlc.exe on Windows", () => {
+    const win = SQLC_PLATFORMS.find((p) => p.platform === "win32");
+    if (!win) throw new Error("no win32");
+    expect(platformManifest(root, win, "1.31.1").files).toEqual([
+      "bin/sqlc.exe",
+      "LICENSE",
+    ]);
+  });
 });
 
 describe("rootManifest", () => {
@@ -62,6 +71,8 @@ describe("rootManifest", () => {
       "sqlc-ts-darwin-x64": "1.2.3",
       "sqlc-ts-linux-arm64": "1.2.3",
       "sqlc-ts-linux-x64": "1.2.3",
+      "sqlc-ts-win32-arm64": "1.2.3",
+      "sqlc-ts-win32-x64": "1.2.3",
     });
     expect(pkg.bin).toEqual(root.bin);
   });
