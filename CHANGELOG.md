@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.1](https://github.com/wakita181009/sqlc-ts/compare/sqlc-ts-v0.8.0...sqlc-ts-v0.8.1) (2026-11-10)
+
+
+### Bug Fixes
+
+* skip packages already on npm when publishing a release ([#37](https://github.com/wakita181009/sqlc-ts/issues/37)) ([5c701fb](https://github.com/wakita181009/sqlc-ts/commit/5c701fba88ed43f3bd9a3b7943b8ef7967d03ebd))
+
 ## [0.8.0](https://github.com/wakita181009/sqlc-ts/compare/sqlc-ts-v0.7.0...sqlc-ts-v0.8.0) (2026-11-10)
 
 
