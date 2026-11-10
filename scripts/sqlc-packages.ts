@@ -23,6 +23,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { binaryName, platformPackage } from "../src/sqlc.ts";
 import {
+  isPublished,
   platformManifest,
   rootManifest,
   SQLC_PLATFORMS,
@@ -121,8 +122,12 @@ function pack(outArg: string, current: boolean): void {
   console.log(`sqlc ${version}: ${readdirSync(out).join(", ")}`);
 }
 
-/** Platform packages first, so sqlc-ts never points at versions that are not out yet. */
-function publish(outArg: string): void {
+/**
+ * Platform packages first, so sqlc-ts never points at versions that are not out yet.
+ * Versions already on npm are skipped: a release that failed partway (npm refuses to
+ * publish over a version) can then be finished by re-running it.
+ */
+async function publish(outArg: string): Promise<void> {
   const out = resolve(outArg);
   const tarballs = readdirSync(out).filter((f) => f.endsWith(".tgz"));
   const main = `sqlc-ts-${rootPkg.version}.tgz`;
@@ -132,7 +137,13 @@ function publish(outArg: string): void {
       `${out} must hold ${main} and all ${SQLC_PLATFORMS.length} platform tarballs`,
     );
   }
+  const version = rootPkg.version;
   for (const file of [...platforms, main]) {
+    const name = file.slice(0, -`-${version}.tgz`.length);
+    if (await isPublished(name, version)) {
+      console.log(`${name}@${version} is already on npm; skipping`);
+      continue;
+    }
     execFileSync("npm", ["publish", join(out, file)], { stdio: "inherit" });
   }
 }
@@ -145,7 +156,7 @@ if (command === "fetch") {
 } else if (command === "pack" && dir) {
   pack(dir, flags.includes("--current"));
 } else if (command === "publish" && dir) {
-  publish(dir);
+  await publish(dir);
 } else {
   console.error(
     "Usage: node scripts/sqlc-packages.ts fetch | pack <dir> [--current] | publish <dir>",

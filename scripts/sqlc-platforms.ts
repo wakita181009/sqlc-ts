@@ -74,3 +74,16 @@ export function rootManifest(root: Manifest): Manifest {
     ),
   };
 }
+
+/** Whether npm already has `name@version`, so a re-run release can skip it. */
+export async function isPublished(
+  name: string,
+  version: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<boolean> {
+  const url = `https://registry.npmjs.org/${name}/${version}`;
+  const res = await fetchFn(url);
+  if (res.status === 200) return true;
+  if (res.status === 404) return false;
+  throw new Error(`${url} answered ${res.status}`);
+}
