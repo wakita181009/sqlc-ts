@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  isPublished,
   platformManifest,
   rootManifest,
   SQLC_PLATFORMS,
@@ -79,5 +80,33 @@ describe("rootManifest", () => {
 
   it("drops the repository's git-hook setup and its publish guard", () => {
     expect(rootManifest(root).scripts).toEqual({ build: "tsc" });
+  });
+});
+
+describe("isPublished", () => {
+  const fetchStatus = (status: number) => async () =>
+    new Response(null, { status });
+
+  it("is true when the registry has that version", async () => {
+    expect(await isPublished("sqlc-ts", "1.2.3", fetchStatus(200))).toBe(true);
+  });
+
+  it("is false when the registry does not", async () => {
+    expect(await isPublished("sqlc-ts", "1.2.3", fetchStatus(404))).toBe(false);
+  });
+
+  it("throws on any other answer rather than guessing", async () => {
+    await expect(
+      isPublished("sqlc-ts", "1.2.3", fetchStatus(503)),
+    ).rejects.toThrow("503");
+  });
+
+  it("asks for exactly that version", async () => {
+    let url = "";
+    await isPublished("sqlc-ts-win32-x64", "0.8.1", async (u) => {
+      url = String(u);
+      return new Response(null, { status: 404 });
+    });
+    expect(url).toBe("https://registry.npmjs.org/sqlc-ts-win32-x64/0.8.1");
   });
 });
