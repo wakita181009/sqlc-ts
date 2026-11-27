@@ -7,7 +7,13 @@ import {
   pascalCase,
 } from "../src/generate.ts";
 import type { GenerateRequest, Query } from "../src/request.ts";
+import mysqlFixture from "./fixture/mysql/codegen_request.json" with {
+  type: "json",
+};
 import fixture from "./fixture/postgres/codegen_request.json" with {
+  type: "json",
+};
+import sqliteFixture from "./fixture/sqlite/codegen_request.json" with {
   type: "json",
 };
 
@@ -41,6 +47,21 @@ describe("generate", () => {
       );
       expect(file.contents, file.path).toBe(golden);
     }
+  });
+
+  it.each([
+    ["postgres", fixture],
+    ["sqlite", sqliteFixture],
+    ["mysql", mysqlFixture],
+  ])("adds the import extension to every relative import (%s)", (_, req) => {
+    const files = generate(req as GenerateRequest, { importExtension: ".ts" });
+    const imports = files.flatMap((file) =>
+      [...file.contents.matchAll(/from "(\.[^"]*)"/g)].map((m) => m[1]),
+    );
+
+    expect(imports).toContain("./runtime.ts");
+    expect(imports).toContain("../runtime.ts");
+    expect(imports.filter((path) => !path.endsWith(".ts"))).toEqual([]);
   });
 
   it("applies @nullable over sqlc's guess and keeps other lines as docs", () => {
