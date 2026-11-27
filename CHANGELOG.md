@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/wakita181009/sqlc-ts/compare/sqlc-ts-v0.8.1...sqlc-ts-v0.9.0) (2026-11-27)
+
+
+### Features
+
+* set the import extension of generated files from tsconfig, or --import-extension ([#47](https://github.com/wakita181009/sqlc-ts/issues/47)) ([b3186d4](https://github.com/wakita181009/sqlc-ts/commit/b3186d49e7ac1635e593499cc853206aed15a693))
+
 ## [0.8.1](https://github.com/wakita181009/sqlc-ts/compare/sqlc-ts-v0.8.0...sqlc-ts-v0.8.1) (2026-11-10)
 
 
