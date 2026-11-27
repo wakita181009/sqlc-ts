@@ -10,6 +10,8 @@ import {
   type GeneratedFile,
   GenerateError,
   generate,
+  IMPORT_EXTENSIONS,
+  type ImportExtension,
 } from "./generate.ts";
 import type { GenerateRequest } from "./request.ts";
 import { runSqlc } from "./sqlc.ts";
@@ -31,12 +33,15 @@ Without <codegen_request.json> <out-dir>, generate and check read sqlc's config
 TypeScript next to the JSON of every \`gen: json\` output in it.
 
 Options:
-  -f, --file  sqlc config file (generate and check only)
-  --help      Show this message
-  --version   Print the version`;
+  -f, --file              sqlc config file (generate and check only)
+  --import-extension EXT  Extension for imports between generated files: .ts or .js
+                          (default: none, for bundler resolution)
+  --help                  Show this message
+  --version               Print the version`;
 
 const OPTIONS = {
   file: { type: "string", short: "f" },
+  "import-extension": { type: "string", default: "" },
   help: { type: "boolean", default: false },
   version: { type: "boolean", default: false },
 } as const;
@@ -44,6 +49,7 @@ const OPTIONS = {
 type Cli =
   | {
       file?: string | undefined;
+      importExtension: ImportExtension;
       help: boolean;
       version: boolean;
       positionals: string[];
@@ -57,11 +63,21 @@ function parseCli(args: readonly string[]): Cli {
       options: OPTIONS,
       allowPositionals: true,
     });
-    return { ...values, positionals };
+    const { "import-extension": importExtension, ...rest } = values;
+    if (!isImportExtension(importExtension)) {
+      return {
+        error: `--import-extension must be .ts or .js, not "${importExtension}"`,
+      };
+    }
+    return { ...rest, importExtension, positionals };
   } catch (err) {
     // parseArgs only throws Error subclasses (ERR_PARSE_ARGS_*).
     return { error: (err as Error).message };
   }
+}
+
+function isImportExtension(value: string): value is ImportExtension {
+  return (IMPORT_EXTENSIONS as readonly string[]).includes(value);
 }
 
 function packageVersion(): string {
@@ -124,8 +140,8 @@ export async function main(args: readonly string[]): Promise<number> {
   for (const target of targets) {
     const code =
       command === "check"
-        ? await checkTarget(target)
-        : await writeTarget(target);
+        ? await checkTarget(target, cli.importExtension)
+        : await writeTarget(target, cli.importExtension);
     exit = Math.max(exit, code);
   }
   return exit;
@@ -154,9 +170,10 @@ async function readRequest(path: string): Promise<GenerateRequest> {
 /** Generates for one target, reporting problems; undefined when there were any. */
 async function generateTarget(
   target: Target,
+  importExtension: ImportExtension,
 ): Promise<GeneratedFile[] | undefined> {
   try {
-    return generate(await readRequest(target.request));
+    return generate(await readRequest(target.request), { importExtension });
   } catch (err) {
     if (!(err instanceof GenerateError)) throw err;
     console.error(`sqlc-ts: ${err.problems.length} problem(s)`);
@@ -165,8 +182,11 @@ async function generateTarget(
   }
 }
 
-async function writeTarget(target: Target): Promise<number> {
-  const files = await generateTarget(target);
+async function writeTarget(
+  target: Target,
+  importExtension: ImportExtension,
+): Promise<number> {
+  const files = await generateTarget(target, importExtension);
   if (!files) return 1;
   const { outDir } = target;
   await mkdir(outDir, { recursive: true });
@@ -183,8 +203,11 @@ async function writeTarget(target: Target): Promise<number> {
   return 0;
 }
 
-async function checkTarget(target: Target): Promise<number> {
-  const files = await generateTarget(target);
+async function checkTarget(
+  target: Target,
+  importExtension: ImportExtension,
+): Promise<number> {
+  const files = await generateTarget(target, importExtension);
   if (!files) return 1;
   return checkFiles(files, target.outDir);
 }

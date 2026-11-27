@@ -58,6 +58,8 @@ This runs `sqlc generate`, then writes the TypeScript next to the JSON sqlc prod
 
 `check` is for CI: it runs `sqlc diff` (which checks every query like `sqlc generate` but compares its output with the JSON on disk), then generates the TypeScript in memory and compares it with the output directory. It exits 1 and lists the files when a query has an error, the JSON or a `.ts` file is out of date or missing, or a generated file is left over from a query file that no longer exists; hand-written files in the output directory are ignored.
 
+Imports between generated files (`./runtime`, `../runtime`, `./enums`) have no extension by default, which suits bundler resolution. With `module: nodenext`, or when Node runs the TypeScript directly, pass `--import-extension .ts` (or `.js` when the output is compiled with tsc) to `generate`, `check` and the plain `sqlc-ts <json> <out-dir>` form alike; `check` compares against output written with the same flag.
+
 To use a different sqlc, set `SQLC_PATH`. Without it, sqlc-ts uses the bundled binary, then `sqlc` on `PATH` (for installs with optional dependencies turned off, or a platform without a package).
 
 Writes one file per query file (`users.sql` → `users.ts`), `enums.ts` when the schema has enums, `runtime.ts` for the engine (the `Executor` type the query functions take) and one driver adapter per file under `adapters/` (`adapters/pg.ts`, ...). The runtime and adapters are copied from this package, so the output has no dependency on it; import the adapter for the driver you use and ignore the rest. Generated files from query files that no longer exist are removed; other files in the directory are left alone.

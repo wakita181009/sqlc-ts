@@ -83,6 +83,30 @@ describe("main", () => {
     );
   });
 
+  it("writes imports with the extension given by --import-extension", async () => {
+    expect(await main(["--import-extension", ".js", requestPath, outDir])).toBe(
+      0,
+    );
+
+    expect(await readFile(join(outDir, "titles.ts"), "utf8")).toContain(
+      'from "./runtime.js";',
+    );
+    expect(await readFile(join(outDir, "adapters", "pg.ts"), "utf8")).toContain(
+      'from "../runtime.js";',
+    );
+  });
+
+  it("rejects an --import-extension other than .ts or .js", async () => {
+    expect(await main(["--import-extension", "ts", requestPath, outDir])).toBe(
+      2,
+    );
+    expect(error).toHaveBeenCalledWith(
+      expect.stringContaining(
+        '--import-extension must be .ts or .js, not "ts"',
+      ),
+    );
+  });
+
   it("removes stale generated files but keeps hand-written and non-ts files", async () => {
     await main([requestPath, outDir]);
     await writeFile(join(outDir, "old.ts"), `${GENERATED_MARKER}\nold`);

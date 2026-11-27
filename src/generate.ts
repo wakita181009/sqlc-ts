@@ -6,6 +6,16 @@ import type { Catalog, Column, GenerateRequest, Query } from "./request.ts";
 
 export type GeneratedFile = { path: string; contents: string };
 
+/**
+ * Appended to the relative imports between generated files. Extensionless suits bundler
+ * resolution; `module: nodenext` and Node's type stripping need `.ts` (or `.js` when the
+ * output is compiled with tsc).
+ */
+export type ImportExtension = "" | ".ts" | ".js";
+export const IMPORT_EXTENSIONS: readonly ImportExtension[] = ["", ".ts", ".js"];
+
+export type GenerateOptions = { importExtension?: ImportExtension };
+
 /** Every problem found in one pass, so a single run lists all of them. */
 export class GenerateError extends Error {
   readonly problems: readonly string[];
@@ -110,7 +120,11 @@ type Directives = {
  * Turns sqlc's analysis into one TS file per query file, `enums.ts` when the schema has
  * enums, and the dialect's runtime file plus its driver adapters under `adapters/`.
  */
-export function generate(request: GenerateRequest): GeneratedFile[] {
+export function generate(
+  request: GenerateRequest,
+  options: GenerateOptions = {},
+): GeneratedFile[] {
+  const ext = options.importExtension ?? "";
   const dialect = pickDialect(request.settings.engine);
   if (!dialect) {
     throw new GenerateError([
@@ -153,7 +167,7 @@ export function generate(request: GenerateRequest): GeneratedFile[] {
     );
     files.push({
       path,
-      contents: renderFile(filename, request.sqlc_version, blocks, used),
+      contents: renderFile(filename, request.sqlc_version, blocks, used, ext),
     });
   }
   if (enums.source) {
@@ -173,7 +187,7 @@ export function generate(request: GenerateRequest): GeneratedFile[] {
   for (const name of adapterNames) {
     files.push({
       path: `${ADAPTERS_DIR}/${name}`,
-      contents: `${header("sqlc-ts", request.sqlc_version)}\n${readFileSync(new URL(name, dialect.adapters), "utf8")}`,
+      contents: `${header("sqlc-ts", request.sqlc_version)}\n${readFileSync(new URL(name, dialect.adapters), "utf8").replaceAll('from "../runtime"', `from "../runtime${ext}"`)}`,
     });
   }
   if (problems.length > 0) throw new GenerateError(problems);
@@ -542,6 +556,7 @@ function renderFile(
   sqlcVersion: string,
   blocks: readonly string[],
   used: Used,
+  ext: ImportExtension,
 ): string {
   const importLine = (
     names: ReadonlySet<string>,
@@ -549,7 +564,7 @@ function renderFile(
     kind = "type ",
   ) =>
     names.size > 0
-      ? `import ${kind}{ ${[...names].sort().join(", ")} } from "${from}";\n`
+      ? `import ${kind}{ ${[...names].sort().join(", ")} } from "${from}${ext}";\n`
       : "";
   const imports =
     importLine(used.enums, "./enums") +
