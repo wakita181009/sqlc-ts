@@ -66,7 +66,7 @@ Imports between generated files (`./runtime`, `../runtime`, `./enums`) follow th
 | `node16` / `nodenext` otherwise | `./runtime.js` |
 | `bundler`, `node10` and anything else, or no `tsconfig.json` | `./runtime` |
 
-When that cannot be read (typescript is not installed, or the `tsconfig.json` only lists `references`), imports have no extension and sqlc-ts says so. `--import-extension .ts`, `.js` or `""` overrides the detection for `generate`, `check` and the plain `sqlc-ts <json> <out-dir>` form alike.
+When that cannot be read (typescript is not installed, tsc fails, e.g. TypeScript 5's TS18003 for a tsconfig that matches no files yet, or the `tsconfig.json` only lists `references`), imports have no extension and sqlc-ts says so; generation itself never fails because of the detection. `--import-extension .ts`, `.js` or `""` overrides the detection for `generate`, `check` and the plain `sqlc-ts <json> <out-dir>` form alike.
 
 To use a different sqlc, set `SQLC_PATH`. Without it, sqlc-ts uses the bundled binary, then `sqlc` on `PATH` (for installs with optional dependencies turned off, or a platform without a package).
 

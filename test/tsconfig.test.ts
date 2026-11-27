@@ -102,6 +102,19 @@ describe("detectImportExtension", () => {
     expect(detected.extension).toBe("");
     expect(detected.note).toContain("only lists references");
   });
+
+  it("notes instead of failing when the tsconfig cannot be read", async () => {
+    await writeFile(join(dir, "tsconfig.json"), "{}");
+    const read = async () => {
+      throw new Error("could not read tsconfig.json with tsc --showConfig");
+    };
+
+    const detected = await detectImportExtension(dir, read);
+    expect(detected.extension).toBe("");
+    expect(detected.note).toMatch(
+      /could not read .*\nso imports have no extension/,
+    );
+  });
 });
 
 describe("showConfig", () => {

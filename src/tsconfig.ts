@@ -50,8 +50,9 @@ export function extensionFor(options: CompilerOptions): ImportExtension {
 /**
  * The import extension the project's tsconfig expects for files in `outDir`. Without a
  * tsconfig the output stays extensionless; when the tsconfig cannot tell (typescript is
- * not installed, or a solution-style tsconfig.json that only lists references), it stays
- * extensionless too, with a note saying so.
+ * not installed, tsc fails, or a solution-style tsconfig.json that only lists references),
+ * it stays extensionless too, with a note saying so. Never fails, so a project that
+ * generated fine before the detection existed still does.
  */
 export async function detectImportExtension(
   outDir: string,
@@ -59,8 +60,17 @@ export async function detectImportExtension(
 ): Promise<Detected> {
   const tsconfig = findTsconfig(outDir);
   if (!tsconfig) return { extension: "" };
-  const config = await readConfig(tsconfig);
   const hint = "pass --import-extension to choose";
+  let config: TsConfig | undefined;
+  try {
+    config = await readConfig(tsconfig);
+  } catch (err) {
+    // e.g. TypeScript 5 rejects a tsconfig that matches no input files (TS18003).
+    return {
+      extension: "",
+      note: `${(err as Error).message}\nso imports have no extension; ${hint}`,
+    };
+  }
   if (!config) {
     return {
       extension: "",

@@ -158,15 +158,19 @@ describe("main", () => {
     );
   });
 
-  it("exits 1 when tsc cannot read the tsconfig", async () => {
+  it("still generates, extensionless with a note, when tsc cannot read the tsconfig", async () => {
     const project = await projectDir();
     try {
       // The lookup finds a directory named tsconfig.json, which tsc then fails to read.
       await mkdir(join(project, "tsconfig.json"));
+      const out = join(project, "gen");
 
-      expect(await main([requestPath, join(project, "gen")])).toBe(1);
+      expect(await main([requestPath, out])).toBe(0);
       expect(error).toHaveBeenCalledWith(
         expect.stringContaining("could not read"),
+      );
+      expect(await readFile(join(out, "titles.ts"), "utf8")).toContain(
+        'from "./runtime";',
       );
     } finally {
       await rm(project, { recursive: true, force: true });

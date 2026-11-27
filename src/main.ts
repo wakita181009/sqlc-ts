@@ -141,10 +141,6 @@ export async function main(args: readonly string[]): Promise<number> {
   for (const target of targets) {
     const importExtension =
       cli.importExtension ?? (await importExtensionFor(target));
-    if (importExtension === undefined) {
-      exit = 1;
-      continue;
-    }
     const code =
       command === "check"
         ? await checkTarget(target, importExtension)
@@ -170,18 +166,10 @@ async function resolveTargets(
   return readTargets(file);
 }
 
-/** The extension the project's tsconfig expects; undefined (reported) when tsc fails. */
-async function importExtensionFor(
-  target: Target,
-): Promise<ImportExtension | undefined> {
-  try {
-    const { extension, note } = await detectImportExtension(target.outDir);
-    if (note) console.error(`sqlc-ts: ${note}`);
-    return extension;
-  } catch (err) {
-    console.error(`sqlc-ts: ${(err as Error).message}`);
-    return undefined;
-  }
+async function importExtensionFor(target: Target): Promise<ImportExtension> {
+  const { extension, note } = await detectImportExtension(target.outDir);
+  if (note) console.error(`sqlc-ts: ${note}`);
+  return extension;
 }
 
 async function readRequest(path: string): Promise<GenerateRequest> {
