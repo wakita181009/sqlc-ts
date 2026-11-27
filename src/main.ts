@@ -15,6 +15,7 @@ import {
 } from "./generate.ts";
 import type { GenerateRequest } from "./request.ts";
 import { runSqlc } from "./sqlc.ts";
+import { detectImportExtension } from "./tsconfig.ts";
 
 const USAGE = `Usage: sqlc-ts generate [-f sqlc.yaml] [<codegen_request.json> <out-dir>]
        sqlc-ts check [-f sqlc.yaml] [<codegen_request.json> <out-dir>]
@@ -34,14 +35,14 @@ TypeScript next to the JSON of every \`gen: json\` output in it.
 
 Options:
   -f, --file              sqlc config file (generate and check only)
-  --import-extension EXT  Extension for imports between generated files: .ts or .js
-                          (default: none, for bundler resolution)
+  --import-extension EXT  Extension for imports between generated files: .ts, .js,
+                          or "" for none (default: from the nearest tsconfig.json)
   --help                  Show this message
   --version               Print the version`;
 
 const OPTIONS = {
   file: { type: "string", short: "f" },
-  "import-extension": { type: "string", default: "" },
+  "import-extension": { type: "string" },
   help: { type: "boolean", default: false },
   version: { type: "boolean", default: false },
 } as const;
@@ -49,7 +50,7 @@ const OPTIONS = {
 type Cli =
   | {
       file?: string | undefined;
-      importExtension: ImportExtension;
+      importExtension?: ImportExtension | undefined;
       help: boolean;
       version: boolean;
       positionals: string[];
@@ -64,9 +65,9 @@ function parseCli(args: readonly string[]): Cli {
       allowPositionals: true,
     });
     const { "import-extension": importExtension, ...rest } = values;
-    if (!isImportExtension(importExtension)) {
+    if (importExtension !== undefined && !isImportExtension(importExtension)) {
       return {
-        error: `--import-extension must be .ts or .js, not "${importExtension}"`,
+        error: `--import-extension must be .ts, .js or "", not "${importExtension}"`,
       };
     }
     return { ...rest, importExtension, positionals };
@@ -138,10 +139,16 @@ export async function main(args: readonly string[]): Promise<number> {
   }
   let exit = 0;
   for (const target of targets) {
+    const importExtension =
+      cli.importExtension ?? (await importExtensionFor(target));
+    if (importExtension === undefined) {
+      exit = 1;
+      continue;
+    }
     const code =
       command === "check"
-        ? await checkTarget(target, cli.importExtension)
-        : await writeTarget(target, cli.importExtension);
+        ? await checkTarget(target, importExtension)
+        : await writeTarget(target, importExtension);
     exit = Math.max(exit, code);
   }
   return exit;
@@ -161,6 +168,20 @@ async function resolveTargets(
   if (request && outDir && extra.length === 0) return [{ request, outDir }];
   if (positionals.length > 0 || !fromConfig) return { error: "" };
   return readTargets(file);
+}
+
+/** The extension the project's tsconfig expects; undefined (reported) when tsc fails. */
+async function importExtensionFor(
+  target: Target,
+): Promise<ImportExtension | undefined> {
+  try {
+    const { extension, note } = await detectImportExtension(target.outDir);
+    if (note) console.error(`sqlc-ts: ${note}`);
+    return extension;
+  } catch (err) {
+    console.error(`sqlc-ts: ${(err as Error).message}`);
+    return undefined;
+  }
 }
 
 async function readRequest(path: string): Promise<GenerateRequest> {

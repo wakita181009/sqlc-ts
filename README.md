@@ -58,7 +58,15 @@ This runs `sqlc generate`, then writes the TypeScript next to the JSON sqlc prod
 
 `check` is for CI: it runs `sqlc diff` (which checks every query like `sqlc generate` but compares its output with the JSON on disk), then generates the TypeScript in memory and compares it with the output directory. It exits 1 and lists the files when a query has an error, the JSON or a `.ts` file is out of date or missing, or a generated file is left over from a query file that no longer exists; hand-written files in the output directory are ignored.
 
-Imports between generated files (`./runtime`, `../runtime`, `./enums`) have no extension by default, which suits bundler resolution. With `module: nodenext`, or when Node runs the TypeScript directly, pass `--import-extension .ts` (or `.js` when the output is compiled with tsc) to `generate`, `check` and the plain `sqlc-ts <json> <out-dir>` form alike; `check` compares against output written with the same flag.
+Imports between generated files (`./runtime`, `../runtime`, `./enums`) follow the nearest `tsconfig.json` above the output directory, read with the project's own `tsc --showConfig` so `extends` applies:
+
+| Module resolution | Imports |
+|---|---|
+| `node16` / `nodenext` (set, or implied by `module`) with `allowImportingTsExtensions` or `rewriteRelativeImportExtensions` | `./runtime.ts` |
+| `node16` / `nodenext` otherwise | `./runtime.js` |
+| `bundler`, `node10` and anything else, or no `tsconfig.json` | `./runtime` |
+
+When that cannot be read (typescript is not installed, or the `tsconfig.json` only lists `references`), imports have no extension and sqlc-ts says so. `--import-extension .ts`, `.js` or `""` overrides the detection for `generate`, `check` and the plain `sqlc-ts <json> <out-dir>` form alike.
 
 To use a different sqlc, set `SQLC_PATH`. Without it, sqlc-ts uses the bundled binary, then `sqlc` on `PATH` (for installs with optional dependencies turned off, or a platform without a package).
 

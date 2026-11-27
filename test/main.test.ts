@@ -10,6 +10,7 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GENERATED_MARKER } from "../src/generate.ts";
 import { main } from "../src/main.ts";
@@ -33,6 +34,15 @@ beforeEach(async () => {
 });
 
 afterEach(() => rm(dir, { recursive: true, force: true }));
+
+/** A directory inside this repository, so a tsconfig there resolves this repository's typescript. */
+async function projectDir(): Promise<string> {
+  const cache = fileURLToPath(
+    new URL("../node_modules/.cache/", import.meta.url),
+  );
+  await mkdir(cache, { recursive: true });
+  return mkdtemp(join(cache, "project-"));
+}
 
 describe("main", () => {
   it("prints usage and exits 2 without both arguments", async () => {
@@ -96,15 +106,71 @@ describe("main", () => {
     );
   });
 
-  it("rejects an --import-extension other than .ts or .js", async () => {
+  it("rejects an --import-extension other than .ts, .js or empty", async () => {
     expect(await main(["--import-extension", "ts", requestPath, outDir])).toBe(
       2,
     );
     expect(error).toHaveBeenCalledWith(
       expect.stringContaining(
-        '--import-extension must be .ts or .js, not "ts"',
+        '--import-extension must be .ts, .js or "", not "ts"',
       ),
     );
+  });
+
+  it("takes the import extension from the nearest tsconfig.json without the flag", async () => {
+    const project = await projectDir();
+    try {
+      await writeFile(
+        join(project, "tsconfig.json"),
+        JSON.stringify({
+          compilerOptions: {
+            module: "nodenext",
+            allowImportingTsExtensions: true,
+          },
+        }),
+      );
+      const out = join(project, "src", "gen");
+
+      expect(await main([requestPath, out])).toBe(0);
+      expect(await readFile(join(out, "titles.ts"), "utf8")).toContain(
+        'from "./runtime.ts";',
+      );
+      // The flag wins over the tsconfig.
+      expect(await main(["--import-extension", "", requestPath, out])).toBe(0);
+      expect(await readFile(join(out, "titles.ts"), "utf8")).toContain(
+        'from "./runtime";',
+      );
+    } finally {
+      await rm(project, { recursive: true, force: true });
+    }
+  });
+
+  it("notes when it cannot tell the extension and writes extensionless imports", async () => {
+    // dir is outside this repository, so no typescript resolves for its tsconfig.
+    await writeFile(join(dir, "tsconfig.json"), "{}");
+
+    expect(await main([requestPath, outDir])).toBe(0);
+    expect(error).toHaveBeenCalledWith(
+      expect.stringContaining("typescript is not installed"),
+    );
+    expect(await readFile(join(outDir, "titles.ts"), "utf8")).toContain(
+      'from "./runtime";',
+    );
+  });
+
+  it("exits 1 when tsc cannot read the tsconfig", async () => {
+    const project = await projectDir();
+    try {
+      // The lookup finds a directory named tsconfig.json, which tsc then fails to read.
+      await mkdir(join(project, "tsconfig.json"));
+
+      expect(await main([requestPath, join(project, "gen")])).toBe(1);
+      expect(error).toHaveBeenCalledWith(
+        expect.stringContaining("could not read"),
+      );
+    } finally {
+      await rm(project, { recursive: true, force: true });
+    }
   });
 
   it("removes stale generated files but keeps hand-written and non-ts files", async () => {
